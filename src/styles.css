@@ -1,0 +1,68 @@
+:root {
+  --bg: #0a0d1f;
+  --ink: #f3ece4;
+  --ink-dim: rgba(243, 236, 228, 0.62);
+  --amber: #ffb15e;
+  --glass: rgba(18, 16, 28, 0.55);
+  --glass-line: rgba(255, 177, 94, 0.22);
+  font-family: 'Bricolage Grotesque Variable', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); overflow: hidden; -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+
+.stage { position: fixed; inset: 0; }
+.stage__canvas { position: absolute; inset: 0; }
+
+/* HTML overlay sits above the canvas; only real controls take pointer events so dragging still works. */
+.overlay { position: absolute; inset: 0; pointer-events: none; }
+.overlay > * { pointer-events: auto; }
+
+.identity {
+  position: absolute; left: clamp(1rem, 3vw, 2.5rem); bottom: clamp(1rem, 3vw, 2.5rem);
+  padding-left: 0.9rem; border-left: 2px solid var(--amber); pointer-events: none;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.7);
+}
+.identity__name { margin: 0; font-size: clamp(1.05rem, 1.6vw, 1.4rem); font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; }
+.identity__role { margin: 0.3rem 0 0; font-size: 0.78rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim); }
+
+.nav {
+  position: absolute; left: 50%; bottom: clamp(1rem, 3vw, 2.5rem); transform: translateX(-50%);
+  display: flex; gap: 0.25rem; padding: 0.35rem;
+  background: var(--glass); border: 1px solid var(--glass-line); border-radius: 999px;
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
+.nav__item {
+  padding: 0.7rem 1.2rem; background: none; border: 0; border-radius: 999px; cursor: pointer;
+  font-size: 0.95rem; font-weight: 500; color: var(--ink-dim); transition: color 0.2s, background 0.2s;
+}
+.nav__item:hover, .nav__item[aria-current='page'] { color: var(--ink); background: rgba(255, 177, 94, 0.14); }
+
+.sound {
+  position: absolute; top: clamp(1rem, 2.5vw, 2rem); right: clamp(1rem, 2.5vw, 2rem);
+  display: grid; place-items: center; width: 46px; height: 46px; cursor: pointer;
+  color: var(--ink); background: var(--glass); border: 1px solid var(--glass-line); border-radius: 14px;
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
+.sound[aria-pressed='true'] { color: var(--amber); }
+
+.hint {
+  position: absolute; left: 50%; bottom: calc(clamp(1rem, 3vw, 2.5rem) + 4.4rem); transform: translateX(-50%);
+  margin: 0; font-size: 0.82rem; letter-spacing: 0.04em; color: var(--ink-dim); pointer-events: none;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.8); transition: opacity 0.6s;
+}
+.hint--hidden { opacity: 0; }
+
+@media (max-width: 760px) {
+  .identity { bottom: 4.9rem; }
+  .nav { left: 0.75rem; right: 0.75rem; bottom: 0.75rem; transform: none; justify-content: space-between; }
+  .nav__item { padding: 0.65rem 0.55rem; font-size: 0.82rem; flex: 1; }
+  .hint { bottom: 9rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
