@@ -9,7 +9,7 @@ interface Props {
 export function NavMenu({ active, onSelect }: Props) {
   return (
     <nav className="nav" aria-label="Sections">
-      {SECTIONS.map((name) => (
+      {SECTIONS.map((name, i) => (
         <button
           key={name}
           type="button"
@@ -17,7 +17,8 @@ export function NavMenu({ active, onSelect }: Props) {
           aria-current={active === name ? 'page' : undefined}
           onClick={() => onSelect(name)}
         >
-          {name}
+          <span className="nav__index" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+          <span className="nav__label">{name}</span>
         </button>
       ))}
     </nav>

@@ -1,31 +1,10 @@
-import { useMemo, useRef } from 'react'
+import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { Quaternion, Vector3, type Group } from 'three'
+import type { Group } from 'three'
 import { colors } from '../config/theme'
 import { prefersReducedMotion } from './motion'
 import { ROBOT_HEAD_YAW, ROBOT_POS } from './layout'
-import type { Vec3 } from './parts'
-
-/** Capsule stretched between two points (robot-local coordinates). */
-function Limb({ from, to, radius, color = colors.robot }: { from: Vec3; to: Vec3; radius: number; color?: string }) {
-  const { position, quaternion, length } = useMemo(() => {
-    const a = new Vector3(...from)
-    const b = new Vector3(...to)
-    const dir = b.clone().sub(a)
-    const len = dir.length()
-    return {
-      position: a.clone().add(b).multiplyScalar(0.5),
-      quaternion: new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), dir.normalize()),
-      length: Math.max(len - radius * 2, 0.001),
-    }
-  }, [from, to, radius])
-  return (
-    <mesh position={position} quaternion={quaternion} castShadow>
-      <capsuleGeometry args={[radius, length, 6, 12]} />
-      <meshStandardMaterial color={color} roughness={0.35} metalness={0.1} />
-    </mesh>
-  )
-}
+import { Limb } from './parts'
 
 const SHOULDER_Y = 1.05
 const HAND_Y = 0.83

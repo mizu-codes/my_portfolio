@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useState } from 'react'
 import { IdentityBadge } from './ui/IdentityBadge'
 import { NavMenu, type Section } from './ui/NavMenu'
+import { SceneBoundary } from './ui/SceneBoundary'
 import { SoundToggle } from './ui/SoundToggle'
 
 // Three.js is split into its own chunk so the HTML overlay paints immediately.
@@ -15,9 +16,11 @@ export default function App() {
   return (
     <main className="stage">
       <div className="stage__canvas">
-        <Suspense fallback={null}>
-          <Scene onInteract={hideHint} />
-        </Suspense>
+        <SceneBoundary>
+          <Suspense fallback={null}>
+            <Scene onInteract={hideHint} />
+          </Suspense>
+        </SceneBoundary>
       </div>
 
       <div className="overlay">

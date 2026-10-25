@@ -17,7 +17,7 @@ export function Room() {
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, midZ]} receiveShadow>
         <planeGeometry args={[hw * 2, depth]} />
-        <meshStandardMaterial color={colors.floor} roughness={0.55} metalness={0.1} />
+        <meshStandardMaterial color={colors.floor} roughness={0.4} metalness={0} />
       </mesh>
       <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, h, midZ]}>
         <planeGeometry args={[hw * 2, depth]} />
@@ -41,10 +41,8 @@ export function Room() {
       <Box size={[0.06, winH, 0.12]} position={[WINDOW.halfWidth, winMidY, backZ]} color={colors.frame} />
       <Box size={[0.05, winH, 0.12]} position={[0, winMidY, backZ]} color={colors.frame} />
 
-      {/* Amber baseboard LEDs */}
-      <GlowBox size={[hw * 2, 0.03, 0.03]} position={[0, 0.06, backZ + 0.02]} color={colors.ledAmber} />
-      <GlowBox size={[0.03, 0.03, depth]} position={[-hw + 0.02, 0.06, midZ]} color={colors.ledAmber} />
-      <GlowBox size={[0.03, 0.03, depth]} position={[hw - 0.02, 0.06, midZ]} color={colors.ledAmber} />
+      {/* Dim amber baseboard LED along the back wall only */}
+      <GlowBox size={[hw * 2, 0.02, 0.02]} position={[0, 0.06, backZ + 0.02]} color={colors.ledAmber} />
     </group>
   )
 }

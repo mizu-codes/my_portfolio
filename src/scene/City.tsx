@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { CanvasTexture, SRGBColorSpace } from 'three'
+import { BoxGeometry, CanvasTexture, RepeatWrapping, SRGBColorSpace } from 'three'
 import { colors } from '../config/theme'
 
 /** Small deterministic PRNG so the skyline is identical on every load. */
@@ -28,7 +28,7 @@ function makeWindowsTexture(rand: () => number) {
   const c = document.createElement('canvas')
   c.width = 64; c.height = 128
   const g = c.getContext('2d')!
-  g.fillStyle = '#0a1030'; g.fillRect(0, 0, 64, 128)
+  g.fillStyle = '#0a1332'; g.fillRect(0, 0, 64, 128)
   for (let y = 3; y < 128; y += 8) {
     for (let x = 3; x < 64; x += 8) {
       const r = rand()
@@ -36,10 +36,25 @@ function makeWindowsTexture(rand: () => number) {
     }
   }
   const t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace
+  t.wrapS = t.wrapT = RepeatWrapping
+  t.anisotropy = 4 // keeps windows crisp on faces seen at a grazing angle
   return t
 }
 
-interface Building { x: number; z: number; w: number; d: number; top: number }
+/** Box whose UVs tile the window texture at a fixed real-world cell size instead of stretching. */
+function buildingGeometry(w: number, h: number, d: number) {
+  const g = new BoxGeometry(w, h, d)
+  const uv = g.getAttribute('uv')
+  const TILE_W = 1.76, TILE_H = 3.5 // metres covered by one 8 x 16 cell texture
+  for (let i = 0; i < uv.count; i++) {
+    const face = Math.floor(i / 4)
+    const across = face < 2 ? d : w // +x/-x faces span depth, +z/-z faces span width
+    uv.setXY(i, uv.getX(i) * (face < 4 ? across / TILE_W : 1), uv.getY(i) * (face < 4 ? h / TILE_H : 1))
+  }
+  return g
+}
+
+interface Building { x: number; z: number; w: number; d: number; top: number; geo: BoxGeometry }
 
 /** Night sky and a placeholder skyline seen through the window. */
 export function City() {
@@ -47,13 +62,9 @@ export function City() {
     const rand = mulberry32(7)
     const list: Building[] = []
     for (let i = 0; i < 38; i++) {
-      list.push({
-        x: -15 + (i / 37) * 30 + (rand() - 0.5) * 1.2,
-        z: -9 - rand() * 10,
-        w: 0.9 + rand() * 1.5,
-        d: 1.2 + rand() * 1.2,
-        top: 0.8 + Math.pow(rand(), 1.4) * 4.6,
-      })
+      const w = 0.9 + rand() * 1.5, d = 1.2 + rand() * 1.2
+      const top = 0.3 + Math.pow(rand(), 1.5) * 2.7 + (i % 9 === 4 ? 1.1 : 0) // a few taller towers
+      list.push({ x: -15 + (i / 37) * 30 + (rand() - 0.5) * 1.2, z: -9 - rand() * 10, w, d, top, geo: buildingGeometry(w, top + 4, d) })
     }
     return { sky: makeSkyTexture(), windows: makeWindowsTexture(rand), buildings: list }
   }, [])
@@ -67,8 +78,7 @@ export function City() {
       {buildings.map((b, i) => {
         const height = b.top + 4
         return (
-          <mesh key={i} position={[b.x, b.top - height / 2, b.z]}>
-            <boxGeometry args={[b.w, height, b.d]} />
+          <mesh key={i} position={[b.x, b.top - height / 2, b.z]} geometry={b.geo}>
             <meshBasicMaterial map={windows} />
           </mesh>
         )

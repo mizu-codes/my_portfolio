@@ -1,26 +1,42 @@
-# GLB asset slots (none installed yet)
+# GLB asset plan (none installed yet)
 
-The scene currently uses procedural placeholders, so nothing here is loaded at runtime.
-Drop verified files in this folder, then replace the matching component in `src/scene/`.
+The scene runs entirely on procedural placeholders; nothing in this folder is loaded at runtime.
+Do not add more primitives to imitate these objects. Replace them with real models.
 
-For every file keep a record of: source page, author, licence, date downloaded.
-Accept only CC0 or CC-BY (credit must then appear in a credits page). Avoid "editorial", NC and ND licences.
+## Replace with GLB models (in priority order)
 
-| Slot | Replaces | Needs |
-|---|---|---|
-| `robot.glb` | `Robot.tsx` | Small friendly white robot with a visible face and a seated or neutral pose. Ideally rigged (arms, head) so it can type. |
-| `office-chair.glb` | `Chair.tsx` | Ergonomic mesh/office chair with headrest, armrests, 5-star base. |
-| `sofa.glb` | `Sofa.tsx` | Modest 2-seater, simple modern shape. |
-| `cat-sleeping.glb` | `Cat.tsx` | Curled sleeping cat, low poly or stylised. |
-| `headphones.glb` | `Pegboard.tsx` | Over-ear headphones. |
-| `speaker.glb` | `Pegboard.tsx` | Small bookshelf or Bluetooth speaker. |
-| `plant-*.glb` (1-3) | `Decor.tsx` | Small potted plants. |
+| Priority | File | Replaces | Why it needs a real model |
+|---|---|---|---|
+| 1 | `robot.glb` | `Robot.tsx` | The focal point. Needs a believable face, joints and ideally a rig so the arms can type. |
+| 2 | `office-chair.glb` | `Chair.tsx` | Mesh back, headrest, armrests and base are too detailed for boxes. |
+| 3 | `cat-sleeping.glb` | `Cat.tsx` | A curled cat cannot be convincingly built from spheres. |
+| 4 | `sofa.glb` | `Sofa.tsx` | Soft rounded cushions. The box sofa reads as a couch only from a distance. |
+| 5 | `headphones.glb`, `speaker.glb` | `Pegboard.tsx` | Small hero props that the camera sees up close. |
+| 5 | `desk-lamp.glb`, `phone.glb` | `DeskProps.tsx` (`Lamp`, `Phone`) | Close-up desk props where real bevels and glass would help. |
+| 6 | `coffee-table.glb`, `rug.glb` | `CoffeeTable.tsx`, `Rug.tsx` | Optional. The primitives read fine; real models add weave and grain. |
+| 6 | `plant-*.glb` (1-3) | `Decor.tsx` | Organic leaf shapes. |
 
-Targets: under 1.5 MB each (under 6 MB total), Draco or Meshopt compressed, one material per object where possible,
-real-world scale in metres, origin at the base. Optimise with `gltf-transform optimize`.
+## Reusable shells
 
-Verified from the Khronos glTF-Sample-Assets repository (checked against each model's README):
-- `SheenChair`: CC0, a lounge chair, not an ergonomic office chair.
-- `GlamVelvetSofa`: CC-BY 4.0 (Wayfair), a possible sofa but an ornate style.
+Most placeholders are rounded boxes with procedural canvas textures (`textures.ts`), so swapping one for a GLB is a one-file change.
+Positions, scales and light targets come from `src/scene/layout.ts`; keep the new model's origin at its base so they still line up.
+
+## Keep procedural
+
+Room shell, window frame, desk, monitor, keyboard, shelf boards, pegboard board, ID cards, books and the skyline.
+Simple hard-surface shapes are fine as primitives and are easy to restyle through `layout.ts` and `theme.ts`.
+
+## Requirements for every file
+
+- Licence: CC0 or CC-BY only (credit must appear on a credits page). Avoid NC, ND and "editorial" licences.
+- Record source page, author, licence and download date for each file.
+- Under 1.5 MB each (about 6 MB total), Draco or Meshopt compressed, real-world scale in metres, origin at the base.
+- Optimise with `gltf-transform optimize`.
+- The scene has no environment map. Models with high metalness render dark, so check them under the existing lights.
+
+## Verified candidates (Khronos glTF-Sample-Assets, checked against each model's README)
+
+- `SheenChair`: CC0, a lounge chair, not an office chair.
+- `GlamVelvetSofa`: CC-BY 4.0 (Wayfair), a possible sofa but ornate.
 - `DiffuseTransmissionPlant`: CC-BY 4.0, a possible plant.
 No robot, cat, headphones, speaker or office chair exists in that set.

@@ -1,18 +1,14 @@
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { MathUtils } from 'three'
+import { cameraPosition, focusFor, yawRange } from './cameraPath'
 import { CAMERA } from './layout'
 import { prefersReducedMotion } from './motion'
 
-const [fx, fy, fz] = CAMERA.focus
-const [ox, oy, oz] = CAMERA.offset
-const radius = Math.hypot(ox, oy, oz)
-const baseYaw = Math.atan2(ox, oz)
-const basePitch = Math.asin(oy / radius)
-const DRAG_SPEED = 0.003
-const KEY_STEP = 0.06
+const DRAG_SPEED = 0.0035
+const KEY_STEP = 0.08
 
-/** Restrained drag-to-look: the camera orbits the focus point within a small clamped range. */
+/** Drag-to-look: the camera orbits the focus point at a constant distance, with a moderate horizontal range and restrained vertical movement. */
 export function CameraRig({ onInteract }: { onInteract?: () => void }) {
   const { camera, gl, size } = useThree()
   const target = useRef({ yaw: 0, pitch: 0 })
@@ -26,7 +22,8 @@ export function CameraRig({ onInteract }: { onInteract?: () => void }) {
 
     const nudge = (dyaw: number, dpitch: number) => {
       const t = target.current
-      t.yaw = MathUtils.clamp(t.yaw + dyaw, -CAMERA.maxYaw, CAMERA.maxYaw)
+      const [lo, hi] = yawRange(el.clientWidth / el.clientHeight)
+      t.yaw = MathUtils.clamp(t.yaw + dyaw, lo, hi)
       t.pitch = MathUtils.clamp(t.pitch + dpitch, CAMERA.minPitch, CAMERA.maxPitch)
       onInteract?.()
     }
@@ -69,21 +66,16 @@ export function CameraRig({ onInteract }: { onInteract?: () => void }) {
   }, [gl, onInteract])
 
   useFrame((_, dt) => {
+    const aspect = size.width / size.height
+    const [lo, hi] = yawRange(aspect)
+    target.current.yaw = MathUtils.clamp(target.current.yaw, lo, hi) // re-clamp after a resize or rotation
     const k = prefersReducedMotion ? 1 : 1 - Math.exp(-dt * 6)
     const c = current.current
     c.yaw += (target.current.yaw - c.yaw) * k
     c.pitch += (target.current.pitch - c.pitch) * k
 
-    // Pull back on narrow/portrait screens so the desk and robot stay in frame.
-    const dist = radius * MathUtils.clamp(1.7 / (size.width / size.height), 1, 2)
-    const yaw = baseYaw + c.yaw
-    const pitch = basePitch + c.pitch
-    camera.position.set(
-      fx + dist * Math.sin(yaw) * Math.cos(pitch),
-      fy + dist * Math.sin(pitch),
-      fz + dist * Math.cos(yaw) * Math.cos(pitch),
-    )
-    camera.lookAt(fx, fy, fz)
+    camera.position.set(...cameraPosition(c.yaw, c.pitch, aspect))
+    camera.lookAt(...focusFor(aspect))
   })
 
   return null

@@ -1,30 +1,45 @@
 import { colors } from '../config/theme'
-import { Box } from './parts'
+import { Box, Glow, GlowBox } from './parts'
 import { SHELF_POS } from './layout'
-import { BookRow, BookStack, Plant } from './Decor'
+import { BookRow, BookStack, FlowerPot, FramedArt, Keepsakes, Plant } from './Decor'
 
-const BOARD = { w: 1.1, t: 0.035, d: 0.26 }
-const Y = [1.15, 1.7, 2.25]
+const W = 1.15
+const T = 0.035
+const D = 0.27
+const BOARDS = [1.1, 1.6, 2.1]
+const CAP = 2.58
 
-/** Small three-board floating shelf on the back wall, left of the window. */
+/** Modern display unit on the back wall, left of the window: dark walnut frame, warm LED under each board, curated contents. */
 export function Shelf() {
+  const top = (i: number) => BOARDS[i] + T / 2
   return (
     <group position={SHELF_POS}>
-      {Y.map((y) => (
-        <Box key={y} size={[BOARD.w, BOARD.t, BOARD.d]} position={[0, y, BOARD.d / 2]} color={colors.wood} roughness={0.6} />
+      <Box size={[W, CAP - BOARDS[0] + 0.05, 0.015]} position={[0, (CAP + BOARDS[0]) / 2, 0.0075]} color="#16121a" roughness={0.9} shadow={false} />
+      {[-1, 1].map((s) => (
+        <Box key={s} size={[0.03, CAP - BOARDS[0] + 0.05, D]} position={[s * (W / 2 + 0.015), (CAP + BOARDS[0]) / 2, D / 2]} color={colors.wood} roughness={0.5} />
       ))}
-      {/* Top: a plant and a pair of flat books */}
-      <Plant position={[-0.3, Y[2] + BOARD.t / 2, 0.13]} scale={1.2} />
-      <BookStack position={[0.25, Y[2] + BOARD.t / 2, 0.13]} count={2} />
-      {/* Middle: upright books and a small plant */}
+      {[...BOARDS, CAP].map((y) => (
+        <group key={y}>
+          <Box size={[W, T, D]} position={[0, y, D / 2]} color={colors.woodLight} roughness={0.45} />
+          <GlowBox size={[W - 0.04, 0.008, 0.012]} position={[0, y - T / 2 - 0.006, D - 0.02]} color={colors.ledAmber} />
+          <Glow size={[W + 0.2, 0.55]} position={[0, y - 0.28, 0.02]} opacity={0.2} />
+        </group>
+      ))}
+
+      {/* Top: framed print, a short stack and the flower pot */}
+      <FramedArt position={[-0.3, top(2), 0.1]} />
+      <BookStack position={[0.06, top(2), 0.13]} count={2} />
+      <FlowerPot position={[0.38, top(2), 0.14]} />
+      {/* Middle: upright books of different sizes, a vase and a candle */}
       <BookRow
-        position={[-0.5, Y[1] + BOARD.t / 2, 0.13]}
-        books={[{ w: 0.04, h: 0.26, d: 0.18 }, { w: 0.05, h: 0.22, d: 0.17 }, { w: 0.035, h: 0.28, d: 0.18 }, { w: 0.05, h: 0.24, d: 0.16 }, { w: 0.04, h: 0.25, d: 0.17 }]}
+        position={[-0.52, top(1), 0.13]}
+        books={[{ w: 0.04, h: 0.26, d: 0.18 }, { w: 0.05, h: 0.22, d: 0.17 }, { w: 0.035, h: 0.3, d: 0.19 }, { w: 0.06, h: 0.24, d: 0.16 }, { w: 0.04, h: 0.2, d: 0.15 }, { w: 0.045, h: 0.27, d: 0.17 }]}
       />
-      <Plant position={[0.32, Y[1] + BOARD.t / 2, 0.13]} scale={0.85} leaves={7} />
-      {/* Bottom: a short stack and a plant */}
-      <BookStack position={[-0.25, Y[0] + BOARD.t / 2, 0.13]} count={3} />
-      <Plant position={[0.3, Y[0] + BOARD.t / 2, 0.13]} scale={1} />
+      <Keepsakes position={[0.14, top(1), 0.13]} />
+      {/* Bottom: flat stacks and one small plant */}
+      <BookStack position={[-0.3, top(0), 0.13]} count={3} />
+      <BookStack position={[-0.02, top(0), 0.13]} count={2} />
+      <Plant position={[0.36, top(0), 0.13]} scale={0.9} leaves={7} />
     </group>
   )
 }
