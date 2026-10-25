@@ -88,3 +88,64 @@ export const glowTexture = () =>
     grad.addColorStop(0, 'rgba(255,170,80,0.9)'); grad.addColorStop(0.45, 'rgba(255,150,60,0.28)'); grad.addColorStop(1, 'rgba(255,140,50,0)')
     g.fillStyle = grad; g.fillRect(0, 0, w, h)
   })
+
+/** Neutral white radial glow. Unlike `glowTexture` it carries no colour of its own, so the material colour tints it. */
+export const softGlowTexture = () =>
+  make('softGlow', 128, 128, (g, w, h) => {
+    const grad = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2)
+    grad.addColorStop(0, 'rgba(255,255,255,0.85)'); grad.addColorStop(0.4, 'rgba(255,255,255,0.22)'); grad.addColorStop(1, 'rgba(255,255,255,0)')
+    g.fillStyle = grad; g.fillRect(0, 0, w, h)
+  })
+
+/**
+ * Rear-panel label for the monitor: a spaced, semi-bold word in warm white with a soft magenta glow and a short magenta rule underneath.
+ * Transparent background, so it reads as printed on the casing. The page font may not have loaded when the monitor mounts, so the
+ * texture is drawn once straight away and again as soon as the font is ready. Not cached: the caller disposes it.
+ */
+export function labelTexture(text: string, fontFamily: string, ink: string, accent: string): CanvasTexture {
+  const w = 1024
+  const h = 256
+  const c = document.createElement('canvas')
+  c.width = w; c.height = h
+  const g = c.getContext('2d')!
+  const t = new CanvasTexture(c)
+  t.colorSpace = SRGBColorSpace
+  t.anisotropy = 8
+
+  const draw = () => {
+    g.clearRect(0, 0, w, h)
+    const size = 150
+    const tracking = size * 0.16
+    g.font = `600 ${size}px ${fontFamily}`
+    g.textBaseline = 'alphabetic'
+    g.textAlign = 'left'
+    const widths = [...text].map((ch) => g.measureText(ch).width)
+    const total = widths.reduce((a, b) => a + b, 0) + tracking * (text.length - 1)
+    const x0 = (w - total) / 2
+    const baseline = 150
+    const paint = (blur: number, alpha: number, color: string) => {
+      g.save()
+      g.globalAlpha = alpha
+      g.fillStyle = color
+      g.shadowColor = accent
+      g.shadowBlur = blur
+      let x = x0
+      for (let i = 0; i < text.length; i++) { g.fillText(text[i], x, baseline); x += widths[i] + tracking }
+      g.restore()
+    }
+    paint(26, 0.55, accent)
+    paint(0, 1, ink)
+
+    const ruleY = 188
+    const grad = g.createLinearGradient(x0, 0, x0 + total, 0)
+    grad.addColorStop(0, accent); grad.addColorStop(0.55, accent); grad.addColorStop(1, 'rgba(216,79,203,0)')
+    g.fillStyle = grad
+    g.fillRect(x0, ruleY, total, 4)
+    t.needsUpdate = true
+  }
+
+  draw()
+  const fonts = document.fonts
+  if (fonts) fonts.load(`600 100px ${fontFamily}`).then(draw).catch(() => {})
+  return t
+}

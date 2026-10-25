@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { ThreeElements } from '@react-three/fiber'
 import type { SpotLight } from 'three'
 import { colors } from '../config/theme'
-import { CEILING_LIGHT_POS, LAMP, PEGBOARD_POS, ROBOT_POS, ROOM, SHELF_POS } from './layout'
+import { CEILING_LIGHT_POS, DESK_X, LAMP, MONITOR, MONITOR_FACING, MONITOR_PANEL_CENTRE_Y, PEGBOARD_POS, ROBOT_POS, ROOM, SHELF_POS } from './layout'
 import type { Vec3 } from './parts'
 import { lowPower } from './quality'
 
@@ -18,8 +18,10 @@ function Spot({ aim, ...props }: ThreeElements['spotLight'] & { aim: Vec3 }) {
   return <spotLight ref={ref} {...props} />
 }
 
-const DESK_AIM: Vec3 = [0, 0.76, -0.3]
-const ROBOT_AIM: Vec3 = [ROBOT_POS[0], 1.25, ROBOT_POS[2]]
+const DESK_AIM: Vec3 = [DESK_X, 0.76, -0.3]
+const ROBOT_AIM: Vec3 = [ROBOT_POS[0], 1.2, ROBOT_POS[2]]
+/** Cool wash from the screen: a point just in front of it, between the monitor and the robot. */
+const SCREEN_GLOW: Vec3 = [MONITOR.position[0] + MONITOR_FACING[0] * 0.35, MONITOR_PANEL_CENTRE_Y, MONITOR.position[2] + MONITOR_FACING[1] * 0.35]
 
 /**
  * Warm, dark interior: amber is the dominant colour of the room's light. Blue is limited to a narrow moon rim light
@@ -56,8 +58,8 @@ export function Lighting() {
       {!lowPower && (
         <>
           {/* Glow under the desk edge, and a cool wash from the monitor onto the robot */}
-          <pointLight color="#ff9d4a" position={[0, 0.25, 0.95]} intensity={0.5} distance={2.2} />
-          <pointLight color="#6fb8ff" position={[-0.2, 1.38, -0.2]} intensity={0.35} distance={1.4} />
+          <pointLight color="#ff9d4a" position={[DESK_X, 0.25, 0.95]} intensity={0.5} distance={2.2} />
+          <pointLight color="#6fb8ff" position={SCREEN_GLOW} intensity={0.4} distance={1.5} />
         </>
       )}
     </>

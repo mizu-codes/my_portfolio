@@ -24,10 +24,19 @@ export const colors = {
   // Robot and accents
   robot: '#eef0f5',
   robotDark: '#121018',
+  robotBezel: '#1c1c25',
+  robotRim: '#2c2d38',
+  robotPanel: '#dde1ec',
+  robotJoint: '#24232c',
+  robotGlass: '#03040a',
   cyan: '#43ddf6',
   magenta: '#d84fcb',
   amber: '#ffb15c',
   ledAmber: '#b36f26',
+  // Monitor
+  monitorShell: '#24262d',
+  monitorFrame: '#15161b',
+  monitorText: '#f1ecf4',
   // Light colours
   amberLight: '#ffc08a',
   moonLight: '#4a78ff',

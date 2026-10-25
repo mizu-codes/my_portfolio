@@ -1,95 +1,30 @@
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import type { Group } from 'three'
-import { colors } from '../config/theme'
 import { prefersReducedMotion } from './motion'
-import { ROBOT_HEAD_YAW, ROBOT_POS } from './layout'
-import { Limb } from './parts'
+import { ROBOT_HEAD, ROBOT_HEAD_YAW, ROBOT_POS } from './layout'
+import { RobotBody } from './RobotBody'
+import { RobotHead } from './RobotHead'
 
-const SHOULDER_Y = 1.05
-const HAND_Y = 0.83
-const HAND_Z = 0.6
-
-function Hand({ x, phase }: { x: number; phase: number }) {
-  const ref = useRef<Group>(null)
-  useFrame(({ clock }) => {
-    if (!ref.current || prefersReducedMotion) return
-    ref.current.position.y = HAND_Y + Math.max(0, Math.sin(clock.elapsedTime * 11 + phase)) * 0.012
-  })
-  return (
-    <group ref={ref} position={[x, HAND_Y, HAND_Z]}>
-      <mesh castShadow>
-        <sphereGeometry args={[0.045, 14, 14]} />
-        <meshStandardMaterial color={colors.robot} roughness={0.35} />
-      </mesh>
-    </group>
-  )
-}
-
-/** Placeholder robot built from primitives. Seated, facing the visitor, typing. */
+/**
+ * The robot: a layered white-shell body (RobotBody.tsx: torso, arms, hands, legs, feet) seated at the desk, and a
+ * screen-faced head (RobotHead.tsx) that gently looks around. All dimensions live in ROBOT_BODY / ROBOT_HEAD in layout.ts.
+ */
 export function Robot() {
   const head = useRef<Group>(null)
   useFrame(({ clock }) => {
     if (!head.current || prefersReducedMotion) return
     head.current.rotation.y = ROBOT_HEAD_YAW + Math.sin(clock.elapsedTime * 0.5) * 0.05
-    head.current.rotation.x = Math.sin(clock.elapsedTime * 0.8) * 0.02
+    head.current.rotation.x = ROBOT_HEAD.pitch + Math.sin(clock.elapsedTime * 0.8) * 0.02
   })
 
   return (
     <group position={ROBOT_POS}>
-      {/* Torso */}
-      <mesh position={[0, 0.88, 0]} castShadow>
-        <capsuleGeometry args={[0.15, 0.26, 8, 16]} />
-        <meshStandardMaterial color={colors.robot} roughness={0.35} metalness={0.1} />
-      </mesh>
-      <mesh position={[0, 1.2, 0]}>
-        <cylinderGeometry args={[0.05, 0.06, 0.06, 12]} />
-        <meshStandardMaterial color={colors.robotDark} />
-      </mesh>
-
-      {/* Head: shell, visor, glowing eyes, ear pods, antennas */}
-      <group ref={head} position={[0, 1.42, 0]} rotation={[0, ROBOT_HEAD_YAW, 0]}>
-        <mesh scale={[1.1, 0.9, 0.95]} castShadow>
-          <sphereGeometry args={[0.22, 32, 24]} />
-          <meshStandardMaterial color={colors.robot} roughness={0.3} metalness={0.1} />
-        </mesh>
-        <mesh position={[0, 0, 0.14]} scale={[1, 0.75, 0.5]}>
-          <sphereGeometry args={[0.16, 28, 20]} />
-          <meshStandardMaterial color={colors.robotDark} roughness={0.15} metalness={0.4} />
-        </mesh>
-        {[-1, 1].map((s) => (
-          <group key={s}>
-            <mesh position={[s * 0.065, 0.005, 0.215]}>
-              <capsuleGeometry args={[0.022, 0.035, 4, 10]} />
-              <meshBasicMaterial color={colors.cyan} toneMapped={false} />
-            </mesh>
-            <mesh position={[s * 0.235, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-              <cylinderGeometry args={[0.065, 0.065, 0.05, 20]} />
-              <meshStandardMaterial color={colors.robotDark} emissive={colors.cyan} emissiveIntensity={0.5} />
-            </mesh>
-            <mesh position={[s * 0.07, 0.25, 0]} rotation={[0, 0, -s * 0.2]}>
-              <cylinderGeometry args={[0.006, 0.006, 0.12, 6]} />
-              <meshStandardMaterial color={colors.robotDark} />
-            </mesh>
-            <mesh position={[s * 0.082, 0.315, 0]}>
-              <sphereGeometry args={[0.014, 8, 8]} />
-              <meshBasicMaterial color={colors.cyan} toneMapped={false} />
-            </mesh>
-          </group>
-        ))}
+      <RobotBody />
+      {/* Head: screen-faced desktop-companion head (see RobotHead.tsx and ROBOT_HEAD in layout.ts) */}
+      <group ref={head} position={ROBOT_HEAD.position} rotation={[ROBOT_HEAD.pitch, ROBOT_HEAD_YAW, 0]}>
+        <RobotHead />
       </group>
-
-      {/* Arms reach the keyboard; legs sit under the desk */}
-      {[-1, 1].map((s) => (
-        <group key={s}>
-          <Limb from={[s * 0.19, SHOULDER_Y, 0]} to={[s * 0.24, 0.85, 0.24]} radius={0.04} />
-          <Limb from={[s * 0.24, 0.85, 0.24]} to={[s * 0.1, HAND_Y, HAND_Z]} radius={0.035} />
-          <Limb from={[s * 0.09, 0.62, 0]} to={[s * 0.09, 0.62, 0.5]} radius={0.07} color={colors.robotDark} />
-          <Limb from={[s * 0.09, 0.62, 0.5]} to={[s * 0.09, 0.1, 0.55]} radius={0.055} color={colors.robotDark} />
-        </group>
-      ))}
-      <Hand x={-0.1} phase={0} />
-      <Hand x={0.1} phase={2.4} />
     </group>
   )
 }

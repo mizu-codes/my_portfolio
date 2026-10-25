@@ -2,7 +2,7 @@ import { useLayoutEffect, useMemo, useRef } from 'react'
 import { Color, DoubleSide, Object3D, Quaternion, Vector3, type InstancedMesh } from 'three'
 import { colors } from '../config/theme'
 import { Box, Limb, type Vec3 } from './parts'
-import { DESK_TOP, KEYBOARD_POS, LAMP } from './layout'
+import { DESK_POS, DESK_TOP, KEYBOARD_POS, LAMP } from './layout'
 import { noteTexture } from './textures'
 
 const COLS = 14
@@ -97,10 +97,10 @@ function Note({ position, yaw, paper, seed, thickness = 0.0015, size = 0.075 }: 
 
 export function StickyNotes() {
   return (
-    <group>
-      <Note position={[-0.74, DESK_TOP, 0.02]} yaw={0.15} paper="#f2d36b" seed={3} thickness={0.012} size={0.08} />
-      <Note position={[-0.6, DESK_TOP, -0.12]} yaw={-0.3} paper="#f2d36b" seed={7} />
-      <Note position={[-0.545, DESK_TOP + 0.0016, -0.095]} yaw={0.25} paper="#e89ab4" seed={9} />
+    <group position={DESK_POS}>
+      <Note position={[-0.93, DESK_TOP, 0.1]} yaw={0.15} paper="#f2d36b" seed={3} thickness={0.012} size={0.08} />
+      <Note position={[-0.82, DESK_TOP, 0.0]} yaw={-0.3} paper="#f2d36b" seed={7} />
+      <Note position={[-0.765, DESK_TOP + 0.0016, 0.025]} yaw={0.25} paper="#e89ab4" seed={9} />
     </group>
   )
 }
@@ -108,7 +108,7 @@ export function StickyNotes() {
 /** Small hardback: cover, cream pages, spine and an amber ribbon marker. */
 export function Book() {
   return (
-    <group position={[-0.65, DESK_TOP, 0.24]} rotation={[0, 0.35, 0]}>
+    <group position={[DESK_POS[0] - 0.86, DESK_TOP, 0.29]} rotation={[0, 0.35, 0]}>
       <Box size={[0.16, 0.004, 0.22]} position={[0, 0.002, 0]} color="#27474f" roughness={0.7} />
       <Box size={[0.15, 0.02, 0.21]} position={[0.003, 0.014, 0]} color="#e6dccb" roughness={0.9} />
       <Box size={[0.16, 0.004, 0.22]} position={[0, 0.026, 0]} color="#27474f" roughness={0.7} />
@@ -121,7 +121,7 @@ export function Book() {
 /** A pen resting on the desk surface: body, grip, cap clip. Radius 0.004 so its centre sits 4 mm above the desk. */
 export function Pen() {
   return (
-    <group position={[-0.57, DESK_TOP + 0.004, 0.04]} rotation={[0, 0.5, 0]}>
+    <group position={[DESK_POS[0] - 0.7, DESK_TOP + 0.004, 0.38]} rotation={[0, 0.5, 0]}>
       <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
         <cylinderGeometry args={[0.004, 0.004, 0.14, 12]} />
         <meshStandardMaterial color="#1c2733" roughness={0.3} metalness={0.5} />
@@ -137,7 +137,7 @@ export function Pen() {
 /** Phone lying screen-up: glass slab, black screen and a thin metal frame. */
 export function Phone() {
   return (
-    <group position={[0.72, DESK_TOP, 0.1]} rotation={[0, -0.4, 0]}>
+    <group position={[DESK_POS[0] + 0.78, DESK_TOP, 0.1]} rotation={[0, -0.4, 0]}>
       <Box size={[0.072, 0.0075, 0.152]} position={[0, 0.00375, 0]} color="#303239" roughness={0.3} metalness={0.8} radius={0.009} />
       <mesh position={[0, 0.0077, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[0.066, 0.146]} />
@@ -150,7 +150,7 @@ export function Phone() {
 /** Separate wireless mouse beside the keyboard. */
 export function Mouse() {
   return (
-    <group position={[0.52, DESK_TOP, -0.2]} rotation={[0, 0.12, 0]}>
+    <group position={[KEYBOARD_POS[0] + 0.34, DESK_TOP, KEYBOARD_POS[2] + 0.02]} rotation={[0, 0.12, 0]}>
       <Box size={[0.062, 0.03, 0.108]} position={[0, 0.015, 0]} color="#1d1e24" roughness={0.4} metalness={0.3} radius={0.014} />
       <Box size={[0.006, 0.004, 0.022]} position={[0, 0.0305, -0.025]} color={colors.cyan} emissive={colors.cyan} emissiveIntensity={0.6} shadow={false} />
     </group>
