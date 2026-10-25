@@ -9,7 +9,7 @@ export function CatBed() {
   const fabric = fabricTexture(colors.petBed, [2, 2])
   const f = { color: '#ffffff', map: fabric, roughness: 1 } as const
   return (
-    <group position={CAT_BED_POS} rotation={[0, -0.5, 0]}>
+    <group position={CAT_BED_POS} rotation={[0, 0.45, 0]}>
       <Box size={[0.62, 0.12, 0.46]} position={[0, 0.06, 0]} radius={0.05} {...f} />
       <Box size={[0.5, 0.07, 0.34]} position={[0, 0.155, 0.03]} radius={0.04} {...f} />
       <Box size={[0.62, 0.24, 0.12]} position={[0, 0.17, -0.17]} radius={0.05} {...f} />

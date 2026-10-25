@@ -33,8 +33,9 @@ export function CameraRig({ onInteract }: { onInteract?: () => void }) {
     }
     const move = (e: PointerEvent) => {
       if (!dragging) return
-      // Scene follows the pointer: dragging right moves the camera left.
-      nudge(-(e.clientX - lastX) * DRAG_SPEED, (e.clientY - lastY) * DRAG_SPEED)
+      // Scene follows the pointer: dragging right orbits left.
+      // Dragging upward (e.clientY < lastY): pitch increases, tilting down into overhead bird's-eye view.
+      nudge(-(e.clientX - lastX) * DRAG_SPEED, -(e.clientY - lastY) * DRAG_SPEED)
       lastX = e.clientX; lastY = e.clientY
     }
     const up = (e: PointerEvent) => {
@@ -45,8 +46,8 @@ export function CameraRig({ onInteract }: { onInteract?: () => void }) {
     const key = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') nudge(KEY_STEP, 0)
       else if (e.key === 'ArrowRight') nudge(-KEY_STEP, 0)
-      else if (e.key === 'ArrowUp') nudge(0, -KEY_STEP / 2)
-      else if (e.key === 'ArrowDown') nudge(0, KEY_STEP / 2)
+      else if (e.key === 'ArrowUp') nudge(0, KEY_STEP / 2)
+      else if (e.key === 'ArrowDown') nudge(0, -KEY_STEP / 2)
     }
 
     el.style.cursor = 'grab'

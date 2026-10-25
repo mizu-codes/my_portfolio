@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { ThreeElements } from '@react-three/fiber'
 import type { SpotLight } from 'three'
 import { colors } from '../config/theme'
-import { CEILING_LIGHT_POS, DESK_X, LAMP, MONITOR, MONITOR_FACING, MONITOR_PANEL_CENTRE_Y, PEGBOARD_POS, ROBOT_POS, ROOM, SHELF_POS } from './layout'
+import { CEILING_LIGHT_POS, DESK_X, DESK_Z, LAMP, MONITOR, MONITOR_FACING, MONITOR_PANEL_CENTRE_Y, PEGBOARD_POS, ROBOT_POS, ROOM, SHELF_POS } from './layout'
 import type { Vec3 } from './parts'
 import { lowPower } from './quality'
 
@@ -18,7 +18,7 @@ function Spot({ aim, ...props }: ThreeElements['spotLight'] & { aim: Vec3 }) {
   return <spotLight ref={ref} {...props} />
 }
 
-const DESK_AIM: Vec3 = [DESK_X, 0.76, -0.3]
+const DESK_AIM: Vec3 = [DESK_X, 0.76, DESK_Z - 0.3]
 const ROBOT_AIM: Vec3 = [ROBOT_POS[0], 1.2, ROBOT_POS[2]]
 /** Cool wash from the screen: a point just in front of it, between the monitor and the robot. */
 const SCREEN_GLOW: Vec3 = [MONITOR.position[0] + MONITOR_FACING[0] * 0.35, MONITOR_PANEL_CENTRE_Y, MONITOR.position[2] + MONITOR_FACING[1] * 0.35]
@@ -52,13 +52,13 @@ export function Lighting() {
       <Spot color="#ffb870" position={LAMP.head} aim={LAMP.aim} angle={0.5} penumbra={0.9} intensity={6} distance={2.6} />
 
       {/* Shelf and pegboard LEDs: warm light spilling on the wall, books, sofa and cat bed */}
-      <pointLight color="#ffb36b" position={[SHELF_POS[0] + 0.3, 1.9, ROOM.backZ + 0.55]} intensity={3.2} distance={4.8} />
+      <pointLight color="#ffb36b" position={[SHELF_POS[0] + 0.45, 1.9, SHELF_POS[2]]} intensity={3.2} distance={4.8} />
       <pointLight color="#ffb36b" position={[PEGBOARD_POS[0] - 0.3, 2.0, ROOM.backZ + 0.6]} intensity={3.6} distance={5.5} />
 
       {!lowPower && (
         <>
           {/* Glow under the desk edge, and a cool wash from the monitor onto the robot */}
-          <pointLight color="#ff9d4a" position={[DESK_X, 0.25, 0.95]} intensity={0.5} distance={2.2} />
+          <pointLight color="#ff9d4a" position={[DESK_X, 0.25, DESK_Z + 0.65]} intensity={0.5} distance={2.2} />
           <pointLight color="#6fb8ff" position={SCREEN_GLOW} intensity={0.4} distance={1.5} />
         </>
       )}

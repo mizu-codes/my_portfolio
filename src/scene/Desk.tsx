@@ -69,25 +69,27 @@ export function Monitor() {
       {/* Stand clamp plate on the lower back */}
       <Box size={[0.15, 0.1, 0.014]} position={[0, hingeY + 0.002, rearBackZ + 0.004]} color={colors.metal} roughness={0.4} metalness={0.6} radius={0.006} shadow={false} />
 
-      {/* Cyan ring logo with a faint halo */}
+      {/* Understated cyan circular emblem matching Image 2 with a soft halo */}
       <mesh position={[0, panelY + label.logoY, rearBackZ + 0.0008]} renderOrder={2}>
-        <planeGeometry args={[0.24, 0.24]} />
-        <meshBasicMaterial map={glow} color={colors.cyan} transparent opacity={0.35} blending={AdditiveBlending} depthWrite={false} toneMapped={false} />
+        <planeGeometry args={[0.26, 0.26]} />
+        <meshBasicMaterial map={glow} color={colors.cyan} transparent opacity={0.4} blending={AdditiveBlending} depthWrite={false} toneMapped={false} />
       </mesh>
       <mesh position={[0, panelY + label.logoY, rearBackZ + 0.0014]}>
-        <torusGeometry args={[label.logoRadius, 0.0065, 12, 48]} />
+        <torusGeometry args={[label.logoRadius, 0.007, 12, 48]} />
         <meshBasicMaterial color={colors.cyan} toneMapped={false} />
       </mesh>
 
-      {/* PROJECTS: printed on the rear casing, facing +z, 1 mm proud of the surface */}
-      <mesh position={[0, panelY + label.y, rearBackZ + 0.001]} renderOrder={3}>
-        <planeGeometry args={[label.width, label.width / 4]} />
-        <meshStandardMaterial
-          map={text} emissiveMap={text} emissive="#ffffff" emissiveIntensity={0.55}
-          transparent depthWrite={false} roughness={0.55} metalness={0.1}
-          polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2}
-        />
-      </mesh>
+      {/* Projects label: rendered on the rear casing only if non-empty */}
+      {label.text ? (
+        <mesh position={[0, panelY + label.y, rearBackZ + 0.001]} renderOrder={3}>
+          <planeGeometry args={[label.width, label.width / 4]} />
+          <meshStandardMaterial
+            map={text} emissiveMap={text} emissive="#ffffff" emissiveIntensity={0.55}
+            transparent depthWrite={false} roughness={0.55} metalness={0.1}
+            polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2}
+          />
+        </mesh>
+      ) : null}
     </group>
   )
 }

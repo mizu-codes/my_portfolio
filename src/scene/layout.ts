@@ -5,44 +5,55 @@ export const ROOM = { halfWidth: 3.6, height: 3.4, backZ: -3.2, frontZ: 5.5 } as
 export const WINDOW = { halfWidth: 1.5, bottom: 1.1, top: 2.9 } as const
 
 export const DESK_TOP = 0.76
-/** Slightly wider than before so the larger monitor, the robot's workspace and the lamp all fit with room to spare. */
-export const DESK = { width: 2.2, depth: 0.9 } as const
 /**
- * World x of the desk's centre. Stage 7.1 moves the whole workstation (desk, rug, robot, chair, keyboard, monitor, lamp and desk props)
- * left of the room's centre, closer to the original design. Change this one number to slide everything together.
+ * Desk size — wider and shallower than before to match the reference's wide platform silhouette.
+ * width: 2.70 m (wider than 2.3, desk spans more of the room width in the diagonal view).
+ * depth: 0.72 m (shallower than 0.95, gives the low sleek platform look of the reference).
  */
-export const DESK_X = -0.35
-export const DESK_POS: Vec3 = [DESK_X, 0, 0]
+export const DESK = { width: 2.70, depth: 0.72 } as const
+/**
+ * World x of the desk's centre. Shifted left so the workstation sits toward the left-centre of
+ * the room, giving the right-side camera view a clear diagonal look across the setup.
+ */
+export const DESK_X = -0.55
+/** World z of the desk's centre. Negative = toward the back wall / window. */
+export const DESK_Z = -1.35
+export const DESK_POS: Vec3 = [DESK_X, 0, DESK_Z]
 /** Converts an x position measured from the desk's centre into world x. */
 export const onDesk = (x: number) => DESK_X + x
 
 /**
- * Working setup. The robot sits at the keyboard; the monitor stands in front of it, a little to the visitor's left, turned so
- * its screen faces the robot. The back (ring logo and the PROJECTS label) faces the visitor, and the robot's head and
- * antennae stay visible above and to the right of the monitor.
+ * Working setup — physically aligned column: robot, keyboard and monitor share the same world X
+ * so the monitor is directly in front of the robot. The monitor screen faces the robot (-z from
+ * monitor toward robot); the rear panel with the cyan emblem and PROJECTS label faces the visitor.
+ * The robot's head yaw is calculated from the actual monitor position, not assumed to be zero.
  */
-export const ROBOT_POS: Vec3 = [onDesk(0.15), 0, -0.72]
-export const CHAIR_POS: Vec3 = [ROBOT_POS[0], 0, ROBOT_POS[2] - 0.1]
-export const KEYBOARD_POS: Vec3 = [ROBOT_POS[0], DESK_TOP, -0.22]
+export const ROBOT_POS: Vec3 = [DESK_X, 0, DESK_Z - 0.60]
+export const CHAIR_POS: Vec3 = [ROBOT_POS[0], 0, ROBOT_POS[2] - 0.10]
+export const KEYBOARD_POS: Vec3 = [DESK_X, DESK_TOP, DESK_Z - 0.12]
 
 /**
- * Monitor, in metres, in its own local space: the screen faces -z, the rear casing and label face +z.
- * `position` is the centre of the stand's base on the desk. `yaw` turns the screen towards the robot (negative = towards the
- * visitor's right on the back side, i.e. the screen swings to face the robot). Tune sizes here; Desk.tsx builds from this block.
+ * Monitor — modern premium desktop display. Screen faces -z (toward the robot); rear faces +z
+ * (toward the visitor). Positioned at the SAME world X as the robot so they are physically aligned.
+ * yaw: 0 means the screen faces straight toward -z, i.e., directly at the robot.
+ * Panel height 0.56 m — keeps proportions realistic while allowing the robot's head to be
+ * visible above and to the right of the monitor from the default oblique camera.
+ * Monitor pushed 0.10 m further forward (DESK_Z + 0.22) to create clear space from robot body.
+ * PROJECTS label and cyan emblem on the rear panel face the visitor.
  */
 export const MONITOR = {
-  position: [onDesk(-0.5), DESK_TOP, 0.12] as Vec3,
-  yaw: -0.48,
+  position: [DESK_X, DESK_TOP, DESK_Z + 0.22] as Vec3,
+  yaw: 0,
   /** Distance from the desk to the bottom edge of the panel. */
-  clearance: 0.09,
+  clearance: 0.06,
   /** Front panel (screen side). `frame` is the border width around the lit screen. */
-  panel: { width: 1.04, height: 0.59, depth: 0.028, radius: 0.013, frame: 0.015 },
+  panel: { width: 1.04, height: 0.56, depth: 0.028, radius: 0.013, frame: 0.015 },
   /** Rear casing, slightly smaller than the panel so the monitor reads as a slab with a tapered back. */
-  rear: { width: 0.9, height: 0.485, depth: 0.054, radius: 0.048 },
+  rear: { width: 0.90, height: 0.46, depth: 0.054, radius: 0.048 },
   /** Foot plate, neck and hinge block. */
-  stand: { baseWidth: 0.38, baseDepth: 0.23, baseHeight: 0.017, neckWidth: 0.076, neckDepth: 0.034, hingeRadius: 0.022 },
-  /** Rear label. `y` is the label centre relative to the panel centre; `width` is the plane width in metres. */
-  label: { text: 'PROJECTS', width: 0.56, y: -0.028, logoY: 0.102, logoRadius: 0.057 },
+  stand: { baseWidth: 0.36, baseDepth: 0.22, baseHeight: 0.017, neckWidth: 0.076, neckDepth: 0.034, hingeRadius: 0.022 },
+  /** Rear label: PROJECTS text and cyan circular emblem on the visitor-facing panel. */
+  label: { text: 'PROJECTS', width: 0.52, y: -0.04, logoY: 0.06, logoRadius: 0.065 },
 } as const
 
 const monitorPanelCentreY = MONITOR.position[1] + MONITOR.clearance + MONITOR.panel.height / 2
@@ -53,10 +64,14 @@ export const MONITOR_POS: Vec3 = MONITOR.position
 export const MONITOR_YAW = MONITOR.yaw
 
 /**
- * The robot looks toward its monitor (negative = toward the visitor's left). Kept modest so the face still reads
- * from the default camera.
+ * Robot head resting yaw — calculated from actual monitor position relative to robot.
+ * Because robot and monitor share the same X, headDx = 0 and headYaw = 0
+ * (the robot looks straight forward, directly at the monitor). The formula is kept
+ * general so that any future X offset will still produce the correct gaze direction.
  */
-export const ROBOT_HEAD_YAW = -0.3
+const headDx = MONITOR.position[0] - ROBOT_POS[0]
+const headDz = MONITOR.position[2] - ROBOT_POS[2]
+export const ROBOT_HEAD_YAW = Math.atan2(headDx, headDz)
 
 /**
  * Body proportions, metres, in robot-local space (origin on the floor under the robot, +z forward toward the desk,
@@ -72,7 +87,7 @@ export const ROBOT_BODY = {
   chest: { width: 0.38, height: 0.29, depth: 0.27, radius: 0.065, y: 0.855 },
   /** Shoulder yoke: its top (y 1.0075) is where the short neck starts. */
   yoke: { width: 0.41, height: 0.065, depth: 0.22, radius: 0.028, y: 0.975 },
-  /** Short neck. Only about 5 cm shows between the yoke and the head casing (casing bottom is at 1.06). */
+  /** Short neck. */
   neck: { radius: 0.04, bottomY: 0.98, topY: 1.09, ringYs: [1.026, 1.046] as number[] },
   shoulder: { x: 0.24, y: 0.945, z: 0, capRadius: 0.062 },
   upperArm: 0.26,
@@ -96,12 +111,9 @@ export const ROBOT_BODY = {
 
 /**
  * Screen-faced head. Metres, in head-local space: +x is the robot's left, +y up, +z the front of the face.
- * Everything RobotHead.tsx builds comes from this block, so proportions can be tuned here without touching geometry code.
- * Keep the bezel inside the casing's flat front area: `casing.width - 2 * casing.radius` by `casing.height - 2 * casing.radius`
- * (RobotHead warns in dev if it does not fit).
  */
 export const ROBOT_HEAD = {
-  /** Neck pivot, relative to ROBOT_POS. The casing bottom sits at 1.06 and overlaps the neck top (neck.topY is 1.09). */
+  /** Neck pivot, relative to ROBOT_POS. */
   position: [0, 1.245, 0] as Vec3,
   /** Resting pitch (rad). Positive tips the face down a little, towards the desk and monitor. */
   pitch: 0.04,
@@ -128,40 +140,64 @@ export const ROBOT_HEAD = {
 
 /** Desk lamp: base on the desk, head aimed at a spot on the desk surface. */
 export const LAMP = {
-  base: [onDesk(-1.0), DESK_TOP, -0.33] as Vec3,
-  head: [onDesk(-0.96), 1.2, -0.28] as Vec3,
-  aim: [onDesk(-0.7), DESK_TOP, 0.1] as Vec3,
+  base: [DESK_X - 0.80, DESK_TOP, DESK_Z - 0.30] as Vec3,
+  head: [DESK_X - 0.75, 1.20, DESK_Z - 0.25] as Vec3,
+  aim: [DESK_X - 0.50, DESK_TOP, DESK_Z + 0.10] as Vec3,
 }
 
-/** Wall pieces sit on the back-wall segments either side of the window. */
-export const SHELF_POS: Vec3 = [-2.55, 0, ROOM.backZ]
+/** Left-side wall display unit and wall pieces. */
+export const SHELF_POS: Vec3 = [-3.45, 0, -1.85]
+export const SHELF_ROT: Vec3 = [0, Math.PI / 2, 0]
 export const PEGBOARD_POS: Vec3 = [2.45, 2.05, ROOM.backZ]
-/** Right side of the room: human sofa against the wall, coffee table in front, small cat bed on the floor. */
+/** Right side of the room: human sofa against the wall, coffee table in front. */
 export const SOFA_POS: Vec3 = [3.13, 0, -1.85]
 export const COFFEE_TABLE_POS: Vec3 = [1.95, 0, -1.85]
-export const CAT_BED_POS: Vec3 = [2.25, 0, -0.05]
-/** The rug follows the desk, sitting a little right of the desk's centre so the chair stays on it. */
-export const RUG = { center: [onDesk(0.05), -0.25] as [number, number], size: [2.7, 2.1] as [number, number] }
+/**
+ * Small cat bed on the left side of the room, beside the desk's left-front corner.
+ * Pushed slightly forward (higher Z) so it remains clearly visible from the low oblique camera.
+ */
+export const CAT_BED_POS: Vec3 = [-1.85, 0, -0.70]
+/** The rug follows the desk, sitting slightly right of the desk's centre so the chair stays on it. */
+export const RUG = { center: [DESK_X + 0.10, DESK_Z - 0.20] as [number, number], size: [2.9, 2.0] as [number, number] }
 export const CEILING_LIGHT_POS: Vec3 = [0, ROOM.height, -1.5]
 
 export const CAMERA = {
-  fov: 38,
-  focus: [0.05, 1.24, -1.0] as Vec3,
-  /** Offset from focus to camera at a 16:9 viewport. The orbit radius never shrinks while dragging. */
-  offset: [0, 0.8, 5.9] as Vec3,
-  /** Moderate horizontal range (rad) either side of the default view. */
-  minYaw: -0.45,
-  maxYaw: 0.45,
-  /** On narrow screens the radius is larger, so the yaw range is reduced to keep the camera at |x| <= this. */
-  maxCameraX: 3.0,
-  /** Keeps the camera below the ceiling (3.4) when a narrow screen pulls it far back. */
-  maxCameraY: 2.9,
+  fov: 52,
+  /**
+   * Look-at target: focused on the workstation at just below monitor height.
+   * Slightly right of desk centre so the desk and robot frame well from the diagonal view.
+   */
+  focus: [-0.10, 0.95, -1.35] as Vec3,
+  /**
+   * Offset from focus to the default camera position.
+   * Places the camera on the RIGHT side of the room at a LOW oblique angle — matching
+   * Image 3's cinematic three-quarter view.
+   * baseYaw ≈ 37°, basePitch ≈ 4° (nearly horizontal, just slightly elevated).
+   * World camera pos ≈ [2.4, 1.25, 1.95].
+   */
+  offset: [2.50, 0.30, 3.30] as Vec3,
+  /**
+   * Horizontal drag range (rad) relative to the base yaw.
+   * minYaw=-1.0: dragging right rotates the camera left/front to reach Image 4's frontal view.
+   * maxYaw=0.15: small headroom rightward from the default right-side start.
+   */
+  minYaw: -1.0,
+  maxYaw: 0.15,
+  /** Keep camera within the room walls (|x| <= 3.4m). */
+  maxCameraX: 3.4,
+  /** Keeps camera safely below the ceiling (3.4m) when tilting upward into overhead view. */
+  maxCameraY: 3.3,
   /** Half-width (m) that must stay visible at the focus point; narrow screens pull the camera back to fit it. */
-  fitHalfWidth: 1.6,
-  /** Tighter fit for phone-shaped screens (aspect <= 0.6) so the robot and monitor stay readable. */
-  fitHalfWidthPhone: 1.3,
+  fitHalfWidth: 1.5,
+  /** Tighter fit for phone-shaped screens (aspect ≤ 0.6). */
+  fitHalfWidthPhone: 1.2,
   /** On portrait screens the focus drops this far so the desk sits above the bottom UI. */
   portraitFocusDrop: 0.35,
-  minPitch: -0.04,
-  maxPitch: 0.12,
+  /** Pitch limits (rad). Negative = camera tilts up (looks toward ceiling). */
+  minPitch: -0.10,
+  /**
+   * Maximum downward pitch offset (rad). Dragging downward tilts the camera down to reveal
+   * the desktop, keyboard, robot hands, chair and rug (matching Image 4).
+   */
+  maxPitch: 0.65,
 }

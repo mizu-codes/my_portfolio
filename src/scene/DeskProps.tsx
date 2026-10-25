@@ -108,7 +108,7 @@ export function StickyNotes() {
 /** Small hardback: cover, cream pages, spine and an amber ribbon marker. */
 export function Book() {
   return (
-    <group position={[DESK_POS[0] - 0.86, DESK_TOP, 0.29]} rotation={[0, 0.35, 0]}>
+    <group position={[DESK_POS[0] - 0.86, DESK_TOP, DESK_POS[2] + 0.29]} rotation={[0, 0.35, 0]}>
       <Box size={[0.16, 0.004, 0.22]} position={[0, 0.002, 0]} color="#27474f" roughness={0.7} />
       <Box size={[0.15, 0.02, 0.21]} position={[0.003, 0.014, 0]} color="#e6dccb" roughness={0.9} />
       <Box size={[0.16, 0.004, 0.22]} position={[0, 0.026, 0]} color="#27474f" roughness={0.7} />
@@ -121,7 +121,7 @@ export function Book() {
 /** A pen resting on the desk surface: body, grip, cap clip. Radius 0.004 so its centre sits 4 mm above the desk. */
 export function Pen() {
   return (
-    <group position={[DESK_POS[0] - 0.7, DESK_TOP + 0.004, 0.38]} rotation={[0, 0.5, 0]}>
+    <group position={[DESK_POS[0] - 0.7, DESK_TOP + 0.004, DESK_POS[2] + 0.28]} rotation={[0, 0.5, 0]}>
       <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
         <cylinderGeometry args={[0.004, 0.004, 0.14, 12]} />
         <meshStandardMaterial color="#1c2733" roughness={0.3} metalness={0.5} />
@@ -137,7 +137,7 @@ export function Pen() {
 /** Phone lying screen-up: glass slab, black screen and a thin metal frame. */
 export function Phone() {
   return (
-    <group position={[DESK_POS[0] + 0.78, DESK_TOP, 0.1]} rotation={[0, -0.4, 0]}>
+    <group position={[DESK_POS[0] + 0.78, DESK_TOP, DESK_POS[2] + 0.1]} rotation={[0, -0.4, 0]}>
       <Box size={[0.072, 0.0075, 0.152]} position={[0, 0.00375, 0]} color="#303239" roughness={0.3} metalness={0.8} radius={0.009} />
       <mesh position={[0, 0.0077, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[0.066, 0.146]} />
