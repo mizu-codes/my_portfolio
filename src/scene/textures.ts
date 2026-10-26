@@ -1,4 +1,4 @@
-import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from 'three'
+import { CanvasTexture, NoColorSpace, RepeatWrapping, SRGBColorSpace } from 'three'
 
 const cache = new Map<string, CanvasTexture>()
 
@@ -23,6 +23,24 @@ function make(key: string, w: number, h: number, draw: (g: CanvasRenderingContex
   t.anisotropy = 4
   if (repeat) { t.wrapS = t.wrapT = RepeatWrapping; t.repeat.set(...repeat) }
   cache.set(key, t)
+  return t
+}
+
+/**
+ * Fine, near-uniform grain for the matte-black desktop. Used as a roughness map only (green channel, values about 0.67 to 0.93),
+ * so it breaks up the specular highlight like a soft-touch finish without ever showing as a visible pattern. It is data, not colour.
+ */
+export const deskGrainTexture = () => {
+  const t = make('desk:grain', 256, 256, (g, w, h) => {
+    g.fillStyle = '#c8c8c8'; g.fillRect(0, 0, w, h)
+    const r = rng(23)
+    for (let i = 0; i < 9000; i++) {
+      const v = 170 + Math.floor(r() * 70)
+      g.fillStyle = `rgb(${v},${v},${v})`
+      g.fillRect(r() * w, r() * h, 1.5, 1.5)
+    }
+  }, [1, 1])
+  t.colorSpace = NoColorSpace
   return t
 }
 

@@ -29,7 +29,7 @@ export default function App() {
         <p className={hintVisible ? 'hint' : 'hint hint--hidden'} aria-hidden={!hintVisible}>
           Drag to look around
         </p>
-        <NavMenu active={section} onSelect={setSection} />
+        {/* <NavMenu active={section} onSelect={setSection} /> */}
       </div>
     </main>
   )

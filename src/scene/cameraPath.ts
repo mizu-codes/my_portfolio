@@ -22,12 +22,39 @@ export function focusFor(aspect: number): Vec3 {
 }
 
 /**
+ * The point the camera actually looks at: the orbit pivot raised by `CAMERA.lookLift`. As the visitor drags down (pitch offset
+ * rises towards its limit) the lift eases to `CAMERA.lookLiftDown`, so the camera both rises and tilts down onto the desk.
+ */
+export function lookTarget(aspect: number, pitchOffset = 0): Vec3 {
+  const [x, y, z] = focusFor(aspect)
+  const hi = pitchRange(aspect)[1]
+  const t = MathUtils.smoothstep(hi > 0 ? pitchOffset / hi : 0, 0, 1)
+  return [x, y + MathUtils.lerp(CAMERA.lookLift, CAMERA.lookLiftDown, t), z]
+}
+
+/**
  * Allowed yaw offsets (rad). The radius never changes, so on narrow screens, where the camera is further away,
  * the range is reduced to keep the camera inside the room's width instead of zooming toward the robot.
+ * The limit accounts for the focus point's own x, since the camera orbits it rather than the room centre.
  */
 export function yawRange(aspect: number): [number, number] {
-  const limit = Math.asin(Math.min(1, CAMERA.maxCameraX / orbitDistance(aspect)))
-  return [Math.max(CAMERA.minYaw, -limit - baseYaw), Math.min(CAMERA.maxYaw, limit - baseYaw)]
+  const dist = orbitDistance(aspect)
+  const tx = focusFor(aspect)[0]
+  const hi = Math.asin(MathUtils.clamp((CAMERA.maxCameraX - tx) / dist, -1, 1))
+  const lo = Math.asin(MathUtils.clamp((-CAMERA.maxCameraX - tx) / dist, -1, 1))
+  return [Math.max(CAMERA.minYaw, lo - baseYaw), Math.min(CAMERA.maxYaw, hi - baseYaw)]
+}
+
+/**
+ * Allowed pitch offsets (rad). Positive pitch lifts the camera and tilts it down onto the desk. The upper limit is the
+ * pitch at which the camera reaches `maxCameraY` (just under the ceiling) at the current orbit distance, so the camera
+ * never needs a height clamp that would quietly change its distance from the focus.
+ */
+export function pitchRange(aspect: number): [number, number] {
+  const dist = orbitDistance(aspect)
+  const ty = focusFor(aspect)[1]
+  const ceilingPitch = Math.asin(MathUtils.clamp((CAMERA.maxCameraY - ty) / dist, -1, 1))
+  return [CAMERA.minPitch, Math.min(CAMERA.maxPitch, ceilingPitch - basePitch)]
 }
 
 export function cameraPosition(yawOffset: number, pitchOffset: number, aspect: number): Vec3 {

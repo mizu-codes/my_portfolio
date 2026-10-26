@@ -33,8 +33,9 @@ interface RobotFaceProps {
 }
 
 /**
- * Two cyan eyes, each its own mesh, drawn on the glass. They are plain geometry driven from useFrame, not a texture,
- * so blinking, gaze and expressions are just transforms: scale.y for openness, position for gaze, rotation.z for tilt.
+ * Two cyan eyes and one cyan mouth, each its own mesh, drawn on the glass. They are plain geometry, not a texture. The eyes are
+ * driven from useFrame, so blinking, gaze and expressions are just transforms: scale.y for openness, position for gaze,
+ * rotation.z for tilt. The mouth is static, so a blink (which only scales the eyes) never touches it.
  */
 export function RobotFace({ surfaceZ, centerY, expression = 'normal', gaze }: RobotFaceProps) {
   const { width, height, radius, spacing, offsetY } = ROBOT_HEAD.eyes
@@ -42,6 +43,8 @@ export function RobotFace({ surfaceZ, centerY, expression = 'normal', gaze }: Ro
   const blink = useMemo(() => createBlinkState(0), [])
   const shape = useRef<EyeShape>({ ...EXPRESSIONS[expression] })
   const eyeShape = useMemo(() => roundedRectShape(width, height, radius), [width, height, radius])
+  const mouth = ROBOT_HEAD.mouth
+  const mouthShape = useMemo(() => roundedRectShape(mouth.width, mouth.thickness, mouth.thickness / 2), [mouth.width, mouth.thickness])
   const glow = useMemo(() => softGlowTexture(), [])
 
   useFrame(({ clock }, dt) => {
@@ -88,6 +91,21 @@ export function RobotFace({ surfaceZ, centerY, expression = 'normal', gaze }: Ro
           </mesh>
         </group>
       ))}
+
+      {/* Mouth: a thin capsule on the glass, centred below the eyes, with the same soft halo as the eyes */}
+      <group position={[0, centerY + mouth.offsetY, surfaceZ + EYE_LIFT]}>
+        <mesh position={[0, 0, GLOW_LIFT - EYE_LIFT]} renderOrder={3}>
+          <planeGeometry args={[mouth.width * 1.9, mouth.thickness * 4.5]} />
+          <meshBasicMaterial
+            map={glow} color={colors.cyan} transparent opacity={0.4}
+            blending={AdditiveBlending} depthWrite={false} toneMapped={false}
+          />
+        </mesh>
+        <mesh renderOrder={4}>
+          <shapeGeometry args={[mouthShape, 10]} />
+          <meshBasicMaterial color={colors.cyan} toneMapped={false} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
+        </mesh>
+      </group>
     </>
   )
 }

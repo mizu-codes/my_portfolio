@@ -10,6 +10,9 @@ export const colors = {
   wood: '#3f2a21',
   woodLight: '#5a3d2c',
   walnutEdge: '#7a4a2a',
+  /** Generated desk (Desk.tsx): near-black satin tabletop, and the slightly lifted matte-black body so its form still reads. */
+  deskTop: '#0c0c0f',
+  deskBody: '#16161b',
   metal: '#2b2a30',
   chair: '#1d1c21',
   keyboard: '#1f2026',
@@ -29,6 +32,8 @@ export const colors = {
   robotPanel: '#dde1ec',
   robotJoint: '#24232c',
   robotGlass: '#03040a',
+  /** Satin silver for the ear-module rims. */
+  robotMetal: '#c3c8d3',
   cyan: '#43ddf6',
   magenta: '#d84fcb',
   amber: '#ffb15c',
