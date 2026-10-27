@@ -41,7 +41,9 @@ export const colors = {
   amber: '#ffb15c',
   ledAmber: '#b36f26',
   // Monitor
-  monitorShell: '#24262d',
+  /** Dark blue-black satin casing, and the slightly deeper glossy central rear panel that carries the title. */
+  monitorShell: '#2a2f55',
+  monitorPanel: '#0a0c1e',
   monitorFrame: '#15161b',
   monitorText: '#f1ecf4',
   // Light colours

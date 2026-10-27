@@ -1,7 +1,8 @@
+import type { RefObject } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { ACESFilmicToneMapping } from 'three'
 import { colors } from '../config/theme'
-import { CAMERA } from './layout'
+import { CAMERA, MONITOR_HOTSPOT } from './layout'
 import { CameraRig } from './CameraRig'
 import { Chair } from './Chair'
 import { City } from './City'
@@ -11,6 +12,7 @@ import { CoffeeTable } from './CoffeeTable'
 import { Desk, Monitor } from './Desk'
 import { Book, Keyboard, Lamp, Mouse, Pen, Phone, StickyNotes } from './DeskProps'
 import { Environment } from './Environment'
+import { HotspotTracker } from './HotspotTracker'
 import { MAX_DPR, lowPower } from './quality'
 import { Rug } from './Rug'
 import { Lighting } from './Lighting'
@@ -23,7 +25,7 @@ import { Sofa } from './Sofa'
 const [fx, fy, fz] = CAMERA.focus
 const [ox, oy, oz] = CAMERA.offset
 
-export default function Scene({ onInteract }: { onInteract?: () => void }) {
+export default function Scene({ onInteract, hotspotRef }: { onInteract?: () => void; hotspotRef?: RefObject<HTMLElement | null> }) {
   return (
     <Canvas
       shadows={!lowPower}
@@ -56,6 +58,7 @@ export default function Scene({ onInteract }: { onInteract?: () => void }) {
       <CoffeeTable />
       <CatBed />
       <CameraRig onInteract={onInteract} />
+      {hotspotRef && <HotspotTracker target={hotspotRef} anchor={MONITOR_HOTSPOT} />}
     </Canvas>
   )
 }

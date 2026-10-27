@@ -63,13 +63,12 @@ export const KEYBOARD_MODEL = {
 } as const
 
 /**
- * Monitor — modern premium desktop display. Screen faces -z (toward the robot); rear faces +z
- * (toward the visitor). Positioned at the SAME world X as the robot so they are physically aligned.
- * yaw: 0 means the screen faces straight toward -z, i.e., directly at the robot.
- * Panel 1.12 × 0.65 m (16:9, restored to the larger preferred size). It sits at the desk's front edge
- * (DESK_Z + 0.20, 0.82 m in front of the robot), centred on the robot's line. From the elevated default camera the
- * robot's eyes and mouth clear the top edge of the casing; at very low camera pitches the monitor hides the face, as in the reference.
- * PROJECTS label and cyan emblem on the rear panel face the visitor.
+ * Monitor — public/models/pc_monitor.glb (see monitorModel.ts and Monitor.tsx). The real screen faces -z (toward the robot); the sculpted
+ * rear, with its four bevels and the decorative PROJECTS panel, faces +z (toward the visitor). Positioned at the SAME world X as the robot so they are
+ * physically aligned. yaw: 0 means the screen faces straight toward -z, i.e., directly at the robot.
+ * The model is a 24-inch 16:10 monitor (0.56 m wide); `scale` enlarges it to suit the room (the desk is 2.5 m wide). With 1.75 the casing
+ * is 0.98 x 0.64 m (a 1.6 cm rim tapering back to 5.6 cm at the middle, see monitorModel.ts) and its top edge sits 0.71 m above the desk, the same height as the monitor it replaces, so from the elevated default
+ * camera the robot's eyes and mouth still clear the top edge.
  */
 /** Sideways shift of the monitor from the robot's centre line (m, negative = the visitor's left of the robot, as seen from the default camera). 0 puts it exactly in line with the robot. */
 export const MONITOR_OFFSET_X = 0
@@ -77,24 +76,30 @@ export const MONITOR_OFFSET_X = 0
 export const MONITOR = {
   position: [DESK_X + MONITOR_OFFSET_X, DESK_TOP, DESK_Z + 0.45] as Vec3,
   yaw: 0,
-  /** Distance from the desk to the bottom edge of the panel. */
-  clearance: 0.06,
-  /** Front panel (screen side). `frame` is the border width around the lit screen. */
-  panel: { width: 1.12, height: 0.65, depth: 0.028, radius: 0.023, frame: 0.014 },
-  /** Rear casing, slightly smaller than the panel so the monitor reads as a slab with a tapered back. */
-  rear: { width: 0.86, height: 0.53, depth: 0.024, radius: 0.048 },
-  /** Foot plate, neck and hinge block. */
-  stand: { baseWidth: 0.38, baseDepth: 0.20, baseHeight: 0.017, neckWidth: 0.076, neckDepth: 0.034, hingeRadius: 0.022 },
-  /** Rear label: PROJECTS text and cyan circular emblem on the visitor-facing panel. */
-  label: { text: 'PROJECTS', width: 0.56, y: -0.10, logoY: 0.08, logoRadius: 0.07 },
+  /** Monitor-space z of the casing's front (screen-side) face. Negative = toward the robot. Baked into public/models/pc_monitor.glb, which is already at final size. */
+  frontZ: -0.014,
+  /**
+   * Measured on the edited public/models/pc_monitor.glb (metres, monitor space; the file is built by scripts/build-monitor-glb.py):
+   * the casing's width and height (1.95 : 1, as in the reference), the desk-to-casing gap the slim stand spans, and the z of the thin rim's
+   * rear edge and of the flat middle of the rear taper (rim 9 mm, taper rises a further 22 mm).
+   */
+  casing: { width: 0.9797, height: 0.5024, clearance: 0.0875, rimZ: -0.005, panelZ: 0.017 },
+  /** Where the separate OPEN PROJECTS control is anchored on the rear taper, monitor space (x toward the visitor's right). */
+  hotspot: [0.44, 0.34, 0.012] as Vec3,
 } as const
 
-const monitorPanelCentreY = MONITOR.position[1] + MONITOR.clearance + MONITOR.panel.height / 2
+const monitorPanelCentreY = MONITOR.position[1] + MONITOR.casing.clearance + MONITOR.casing.height / 2
 /** Centre of the lit screen in world space, and the direction it faces (towards the robot). */
 export const MONITOR_PANEL_CENTRE_Y = monitorPanelCentreY
 export const MONITOR_FACING: [number, number] = [-Math.sin(MONITOR.yaw), -Math.cos(MONITOR.yaw)]
 export const MONITOR_POS: Vec3 = MONITOR.position
 export const MONITOR_YAW = MONITOR.yaw
+/** World position of the OPEN PROJECTS anchor: MONITOR.hotspot turned by the monitor's yaw and moved to the monitor's position. */
+export const MONITOR_HOTSPOT: Vec3 = [
+  MONITOR.position[0] + MONITOR.hotspot[0] * Math.cos(MONITOR.yaw) + MONITOR.hotspot[2] * Math.sin(MONITOR.yaw),
+  MONITOR.position[1] + MONITOR.hotspot[1],
+  MONITOR.position[2] - MONITOR.hotspot[0] * Math.sin(MONITOR.yaw) + MONITOR.hotspot[2] * Math.cos(MONITOR.yaw),
+]
 
 /**
  * Robot head resting yaw — calculated from actual monitor position relative to robot.
@@ -102,9 +107,9 @@ export const MONITOR_YAW = MONITOR.yaw
  * (the robot looks straight forward, directly at the monitor). The formula is kept
  * general so that any future X offset will still produce the correct gaze direction.
  */
-// Aim at the centre of the lit screen: the monitor's position pushed out along its facing direction by half the panel depth.
-const headDx = MONITOR.position[0] + MONITOR_FACING[0] * MONITOR.panel.depth / 2 - ROBOT_POS[0]
-const headDz = MONITOR.position[2] + MONITOR_FACING[1] * MONITOR.panel.depth / 2 - ROBOT_POS[2]
+// Aim at the centre of the lit screen: the monitor's position pushed out along its facing direction to the casing's front face.
+const headDx = MONITOR.position[0] + MONITOR_FACING[0] * -MONITOR.frontZ - ROBOT_POS[0]
+const headDz = MONITOR.position[2] + MONITOR_FACING[1] * -MONITOR.frontZ - ROBOT_POS[2]
 export const ROBOT_HEAD_YAW = Math.atan2(headDx, headDz)
 
 /**
@@ -118,7 +123,7 @@ export const ROBOT_BODY = {
   pelvis: { width: 0.33, height: 0.13, depth: 0.25, radius: 0.055, y: 0.6 },
   waistY: 0.69,
   /** Chest spans y 0.71 to 1.00. Slightly bigger than Stage 7 so the torso feels more substantial next to the head. */
-  chest: { width: 0.38, height: 0.29, depth: 0.27, radius: 0.065, y: 0.855 },
+  chest: { width: 0.38, height: 0.33, depth: 0.27, radius: 0.065, y: 0.855 },
   /** Shoulder yoke: its top (y 1.0075) is where the short neck starts. */
   yoke: { width: 0.41, height: 0.065, depth: 0.22, radius: 0.028, y: 0.975 },
   /** Short neck. */
@@ -132,7 +137,7 @@ export const ROBOT_BODY = {
   /** How much of the forearm's sideways angle the hand follows (0 = hands point straight ahead, 1 = in line with the forearm). Keeps the two hands from crossing. */
   handYawFactor: 0.35,
   /** Wrist target relative to the robot origin, per side (x is mirrored). The hand continues past it, over the keys. */
-  wrist: [0.125, 0.862, 0.372] as Vec3,
+  wrist: [0.190, 0.862, 0.372] as Vec3,
   /** Direction the elbow wants to swing (x is mirrored): out and down. */
   elbowHint: [0.7, -0.8, -0.15] as Vec3,
   /** How far the hand pitches down past the forearm direction (rad), so the fingertips reach the keys. */

@@ -40,3 +40,7 @@ Simple hard-surface shapes are fine as primitives and are easy to restyle throug
 - `GlamVelvetSofa`: CC-BY 4.0 (Wayfair), a possible sofa but ornate.
 - `DiffuseTransmissionPlant`: CC-BY 4.0, a possible plant.
 No robot, cat, headphones, speaker or office chair exists in that set.
+
+## Credits (installed models)
+
+- `pc_monitor.glb`: "PC_monitor" by yuuuusukeeee, CC-BY 4.0 (http://creativecommons.org/licenses/by/4.0/), https://sketchfab.com/3d-models/pc-monitor-30ac841584d7432fbca691a2050f3434. Modified: casing re-proportioned and slimmed, rear re-sculpted into a four-sided taper, bracket removed and its hole closed, stand refitted, materials recoloured. Built by `scripts/build-monitor-glb.py` from the unmodified download, which is kept as `pc_monitor.original.glb`. The same credit is stored in the GLB's `asset.extras`.

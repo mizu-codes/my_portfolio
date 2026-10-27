@@ -39,12 +39,12 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
 .identity__role { margin: 0.3rem 0 0; font-size: clamp(0.68rem, 0.9vw, 0.78rem); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim); }
 
 .nav {
-  position: absolute; left: 50%; bottom: calc(var(--pad) + var(--safe-b)); transform: translateX(-50%);
-  display: flex; gap: 0.15rem; padding: 0.3rem; background: var(--panel); border: 1px solid var(--line); border-radius: 999px;
+  position: absolute; left: 50%; bottom: calc(var(--pad) + var(--safe-b)); transform: translateX(-45%);
+  display: flex; gap: 0.15rem; padding: 0.2rem; background: var(--panel); border: 1px solid var(--line); border-radius: 999px;
   backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
 }
 .nav__item {
-  display: inline-flex; align-items: center; gap: 0.5rem; min-height: 44px; padding: 0.5rem 1.15rem;
+  display: inline-flex; align-items: center; gap: 0.4rem; min-height: 44px; padding: 0.2rem 1.15rem;
   background: none; border: 0; border-radius: 999px; cursor: pointer; font-size: 0.92rem; font-weight: 500; letter-spacing: 0.02em;
   color: var(--ink-dim); transition: color 0.2s, background 0.2s;
 }
@@ -97,6 +97,19 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
   .nav__index { font-size: 0.6rem; }
   .hint { display: none; }
 }
+
+/* Separate control beside the monitor. scene/HotspotTracker.tsx sets its transform every frame; the margins put the dot (not the pill's corner) on the anchor. */
+.open-projects {
+  position: absolute; left: 0; top: 0; visibility: hidden; margin: -22px 0 0 -0.9rem;
+  display: inline-flex; align-items: center; gap: 0.6rem; min-height: 44px; padding: 0.45rem 0.95rem 0.45rem 0.55rem;
+  font-size: 0.68rem; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; white-space: nowrap; cursor: pointer;
+  color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); transition: background 0.2s, border-color 0.2s;
+}
+.open-projects__dot { width: 0.7rem; height: 0.7rem; border: 2px solid var(--magenta); border-radius: 50%; box-shadow: 0 0 10px rgba(216, 79, 203, 0.7); }
+.open-projects__arrow { color: var(--magenta); letter-spacing: 0; }
+.open-projects:hover { background: rgba(216, 79, 203, 0.16); border-color: rgba(216, 79, 203, 0.5); }
+@media (max-width: 560px) { .open-projects { font-size: 0.6rem; letter-spacing: 0.12em; gap: 0.45rem; } }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
