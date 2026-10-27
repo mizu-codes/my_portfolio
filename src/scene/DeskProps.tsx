@@ -1,48 +1,59 @@
-import { useLayoutEffect, useMemo, useRef } from 'react'
-import { Color, DoubleSide, Object3D, Quaternion, Vector3, type InstancedMesh } from 'three'
+import { useMemo } from 'react'
+import { useLoader } from '@react-three/fiber'
+import { Box3, DoubleSide, Group, Quaternion, Vector3, type Mesh, type Object3D } from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { colors } from '../config/theme'
 import { Box, Limb, type Vec3 } from './parts'
-import { DESK_POS, DESK_TOP, KEYBOARD_POS, LAMP } from './layout'
+import { DESK_POS, DESK_TOP, KEYBOARD_MODEL, KEYBOARD_POS, LAMP } from './layout'
 import { noteTexture } from './textures'
 
-const COLS = 14
-const ROWS = 5
-const PITCH = 0.0285
+/**
+ * Mechanical keyboard: the optimised GLB (see scripts/optimize-keyboard.mjs). It is Meshopt-compressed with WebP textures, so
+ * the loader needs the decoder that ships with three. The original, full-quality mechanical_keyboard.glb is not loaded.
+ */
+const KEYBOARD_MODEL_URL = `${import.meta.env.BASE_URL}models/mechanical_keyboard_web.glb`
+const withMeshopt = (loader: GLTFLoader) => { loader.setMeshoptDecoder(MeshoptDecoder) }
+// Start downloading as soon as this module is evaluated, in parallel with WebGL start-up.
+useLoader.preload(GLTFLoader, KEYBOARD_MODEL_URL, withMeshopt)
 
-/** Mechanical keyboard: aluminium case, softly lit plate (cyan, visible in the key gaps) and instanced dark keycaps. */
+/** Parts that can be seen from above. The PCB, copper traces and switch internals sit under the plate, so they skip the shadow passes. */
+const VISIBLE_PART = /^(Board|Plate|Roller|Keycap|Cube)/
+
+/**
+ * Copies the loaded scene (the loader's cached one is never modified, so remounts and StrictMode reuse it) and wraps it so the
+ * footprint centre is the origin and the case bottom is y = 0. Measuring at load keeps the placement correct for any re-export.
+ */
+function buildKeyboard(source: Object3D): Object3D {
+  const model = source.clone(true)
+  model.updateMatrixWorld(true)
+  const box = new Box3().setFromObject(model)
+  const centre = box.getCenter(new Vector3())
+  model.position.set(-centre.x, -box.min.y, -centre.z)
+  model.traverse((o) => {
+    const mesh = o as Mesh
+    if (!mesh.isMesh) return
+    const visible = VISIBLE_PART.test(mesh.name)
+    mesh.castShadow = visible
+    mesh.receiveShadow = visible
+  })
+  const holder = new Group()
+  holder.add(model)
+  return holder
+}
+
+/** Compact mechanical keyboard on the desk, typing edge towards the robot. Placement and scale come from KEYBOARD_MODEL in layout.ts. */
 export function Keyboard() {
-  const keys = useRef<InstancedMesh>(null)
-  useLayoutEffect(() => {
-    const mesh = keys.current
-    if (!mesh) return
-    const o = new Object3D()
-    const c = new Color()
-    let i = 0
-    for (let r = 0; r < ROWS; r++) {
-      for (let col = 0; col < COLS; col++) {
-        o.position.set((col - (COLS - 1) / 2) * PITCH, 0, (r - (ROWS - 1) / 2) * PITCH)
-        o.updateMatrix()
-        mesh.setMatrixAt(i, o.matrix)
-        const edge = col === 0 || col === COLS - 1 || r === ROWS - 1
-        mesh.setColorAt(i, c.set(r === 0 && col === COLS - 1 ? colors.ledAmber : edge ? '#3b3f4a' : '#26282f'))
-        i++
-      }
-    }
-    mesh.instanceMatrix.needsUpdate = true
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
-  }, [])
-
+  const gltf = useLoader(GLTFLoader, KEYBOARD_MODEL_URL, withMeshopt)
+  const keyboard = useMemo(() => buildKeyboard(gltf.scene), [gltf])
+  const { yaw, scale, offset } = KEYBOARD_MODEL
   return (
-    <group position={KEYBOARD_POS} rotation={[0.05, 0, 0]}>
-      <Box size={[0.44, 0.022, 0.17]} position={[0, 0.011, 0]} color="#2a2c33" roughness={0.35} metalness={0.7} radius={0.006} />
-      <mesh position={[0, 0.0225, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[0.42, 0.155]} />
-        <meshStandardMaterial color="#08141a" emissive="#1c8fb4" emissiveIntensity={0.45} />
-      </mesh>
-      <instancedMesh ref={keys} args={[undefined, undefined, COLS * ROWS]} position={[0, 0.0305, 0]} castShadow receiveShadow>
-        <boxGeometry args={[0.024, 0.014, 0.024]} />
-        <meshStandardMaterial color="#ffffff" roughness={0.5} />
-      </instancedMesh>
+    <group
+      position={[KEYBOARD_POS[0] + offset[0], KEYBOARD_POS[1] + offset[1], KEYBOARD_POS[2] + offset[2]]}
+      rotation={[0, yaw, 0]}
+      scale={scale}
+    >
+      <primitive object={keyboard} />
     </group>
   )
 }

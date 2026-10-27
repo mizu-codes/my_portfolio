@@ -1,10 +1,12 @@
 /** Single source of truth for scene colours. Warm charcoal and walnut dominate; blue is reserved for the window and rim light. */
 export const colors = {
   // Architecture
-  wall: '#3a302e',
+  wall: '#403c3a',
+  /** Graphite stone feature-wall panels (Room.tsx). */
+  wallStone: '#2f3033',
   wallDark: '#211b1b',
   ceiling: '#1d1818',
-  floor: '#2a1c17',
+  floor: '#3a2f29',
   frame: '#17141a',
   // Furniture and materials
   wood: '#3f2a21',
@@ -19,7 +21,7 @@ export const colors = {
   keys: '#34363f',
   fabric: '#6a5757',
   petBed: '#5b4549',
-  rug: '#2a2220',
+  rug: '#303238',
   fur: '#b08a66',
   cream: '#e8e2d8',
   pot: '#d8d0c4',

@@ -5,7 +5,7 @@ import { Box, Glow, GlowBox } from './parts'
 import { PEGBOARD_POS, ROOM } from './layout'
 
 const W = 1.3
-const H = 0.9
+const H = 0.7
 const FRONT = 0.032 // z of the board's front face, from the wall
 
 function usePegTexture() {

@@ -5,7 +5,7 @@ import { colors } from '../config/theme'
 import { ROBOT_HEAD } from './layout'
 import { prefersReducedMotion } from './motion'
 import { EXPRESSIONS, createBlinkState, updateBlink, type EyeShape, type ExpressionName } from './faceAnimation'
-import { roundedRectShape } from './shapes'
+import { ellipseShape, roundedRectShape } from './shapes'
 import { softGlowTexture } from './textures'
 
 /** How far the eyes sit above the glass (m). Small enough to read as part of the display, large enough to avoid z-fighting. */
@@ -38,11 +38,11 @@ interface RobotFaceProps {
  * rotation.z for tilt. The mouth is static, so a blink (which only scales the eyes) never touches it.
  */
 export function RobotFace({ surfaceZ, centerY, expression = 'normal', gaze }: RobotFaceProps) {
-  const { width, height, radius, spacing, offsetY } = ROBOT_HEAD.eyes
+  const { width, height, spacing, offsetY } = ROBOT_HEAD.eyes
   const eyeRefs = useRef<(Group | null)[]>([])
   const blink = useMemo(() => createBlinkState(0), [])
   const shape = useRef<EyeShape>({ ...EXPRESSIONS[expression] })
-  const eyeShape = useMemo(() => roundedRectShape(width, height, radius), [width, height, radius])
+  const eyeShape = useMemo(() => ellipseShape(width, height), [width, height])
   const mouth = ROBOT_HEAD.mouth
   const mouthShape = useMemo(() => roundedRectShape(mouth.width, mouth.thickness, mouth.thickness / 2), [mouth.width, mouth.thickness])
   const glow = useMemo(() => softGlowTexture(), [])

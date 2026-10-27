@@ -1,5 +1,5 @@
 import { MathUtils } from 'three'
-import { CAMERA } from './layout'
+import { CAMERA, RIGHT_WALL_FIT } from './layout'
 import type { Vec3 } from './parts'
 
 const [fx, fy, fz] = CAMERA.focus
@@ -12,7 +12,45 @@ const tanHalfFov = Math.tan((CAMERA.fov * Math.PI) / 360)
 /** Orbit distance for a viewport. Constant while dragging; narrow screens sit further back so the desk fits the width. */
 export function orbitDistance(aspect: number) {
   const fit = MathUtils.lerp(CAMERA.fitHalfWidthPhone, CAMERA.fitHalfWidth, MathUtils.clamp((aspect - 0.6) / 0.4, 0, 1))
-  return Math.max(radius, fit / (tanHalfFov * aspect))
+  // Never pull back past the distance at which the default camera would reach the ceiling-safe height, or the height clamp would silently change the orbit.
+  const maxDist = (CAMERA.maxCameraY - 0.1 - fy) / Math.sin(basePitch)
+  const wall = 1 + (Math.min(wallFitDistance(aspect), maxDist) / radius - 1) * MathUtils.clamp((aspect - 0.7) / 0.3, 0, 1)
+  return Math.max(radius, fit / (tanHalfFov * aspect), radius * wall)
+}
+
+/**
+ * Smallest orbit distance (>= radius) at which the right-wall group (pegboard + speaker ledge, RIGHT_WALL_FIT) stays inside the
+ * default view. Wide screens already fit, so this returns `radius`; squarer windows pull back just far enough. Uses the default
+ * yaw/pitch, the look shift and look lift, so it matches the camera the visitor starts with.
+ */
+function wallFitDistance(aspect: number) {
+  const [tx, ty, tz] = [fx, fy, fz]
+  const dirX = Math.sin(baseYaw) * Math.cos(basePitch)
+  const dirY = Math.sin(basePitch)
+  const dirZ = Math.cos(baseYaw) * Math.cos(basePitch)
+  const aimX = tx + CAMERA.lookShiftX, aimY = ty + CAMERA.lookLift, aimZ = tz
+  const worst = (d: number) => {
+    const cx = tx + dirX * d, cy = ty + dirY * d, cz = tz + dirZ * d
+    let fxv = aimX - cx, fyv = aimY - cy, fzv = aimZ - cz
+    const fl = Math.hypot(fxv, fyv, fzv); fxv /= fl; fyv /= fl; fzv /= fl
+    // right = forward x up(0,1,0)
+    let rx = -fzv, rz = fxv
+    const rl = Math.hypot(rx, rz); rx /= rl; rz /= rl
+    let max = -Infinity
+    for (const [px, py, pz] of RIGHT_WALL_FIT) {
+      const dx = px - cx, dy = py - cy, dz = pz - cz
+      const depth = dx * fxv + dy * fyv + dz * fzv
+      max = Math.max(max, (dx * rx + dz * rz) / (depth * tanHalfFov * aspect))
+    }
+    return max
+  }
+  if (worst(radius) <= CAMERA.rightWallMargin) return radius
+  let lo = radius, hi = radius * 3
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2
+    if (worst(mid) > CAMERA.rightWallMargin) lo = mid; else hi = mid
+  }
+  return hi
 }
 
 /** Look-at point. On portrait screens it drops so the desk sits above the bottom UI. */
@@ -29,7 +67,7 @@ export function lookTarget(aspect: number, pitchOffset = 0): Vec3 {
   const [x, y, z] = focusFor(aspect)
   const hi = pitchRange(aspect)[1]
   const t = MathUtils.smoothstep(hi > 0 ? pitchOffset / hi : 0, 0, 1)
-  return [x, y + MathUtils.lerp(CAMERA.lookLift, CAMERA.lookLiftDown, t), z]
+  return [x + CAMERA.lookShiftX, y + MathUtils.lerp(CAMERA.lookLift, CAMERA.lookLiftDown, t), z]
 }
 
 /**

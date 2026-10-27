@@ -17,3 +17,10 @@ export function roundedRectShape(width: number, height: number, radius: number):
   s.absarc(x + r, y + r, r, Math.PI, Math.PI * 1.5, false)
   return s
 }
+
+/** Ellipse centred on the origin in the XY plane, counter-clockwise so its faces point towards +z. */
+export function ellipseShape(width: number, height: number): Shape {
+  const s = new Shape()
+  s.absellipse(0, 0, width / 2, height / 2, 0, Math.PI * 2, false, 0)
+  return s
+}
