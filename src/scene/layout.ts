@@ -63,12 +63,12 @@ export const KEYBOARD_MODEL = {
 } as const
 
 /**
- * Monitor — public/models/pc_monitor.glb (see monitorModel.ts and Monitor.tsx). The real screen faces -z (toward the robot); the sculpted
- * rear, with its four bevels and the decorative PROJECTS panel, faces +z (toward the visitor). Positioned at the SAME world X as the robot so they are
- * physically aligned. yaw: 0 means the screen faces straight toward -z, i.e., directly at the robot.
- * The model is a 24-inch 16:10 monitor (0.56 m wide); `scale` enlarges it to suit the room (the desk is 2.5 m wide). With 1.75 the casing
- * is 0.98 x 0.64 m (a 1.6 cm rim tapering back to 5.6 cm at the middle, see monitorModel.ts) and its top edge sits 0.71 m above the desk, the same height as the monitor it replaces, so from the elevated default
- * camera the robot's eyes and mouth still clear the top edge.
+ * Monitor â public/models/pc_monitor.glb (see monitorModel.ts and Monitor.tsx). The real screen faces -z (toward the robot); the sculpted
+ * rear, with its four-sided sloping casing and recessed flat centre panel, faces +z (toward the visitor).
+ * Positioned at the SAME world X as the robot so they are physically aligned.
+ * yaw: 0 means the screen faces straight toward -z, i.e., directly at the robot.
+ * Built procedurally by scripts/build-monitor-glb.py (no original GLB required).
+ * Casing 0.60 x 0.375 m (aspect ~1.60), clearance 0.090 m, GLB origin on the desk surface under the casing centre.
  */
 /** Sideways shift of the monitor from the robot's centre line (m, negative = the visitor's left of the robot, as seen from the default camera). 0 puts it exactly in line with the robot. */
 export const MONITOR_OFFSET_X = 0
@@ -76,16 +76,16 @@ export const MONITOR_OFFSET_X = 0
 export const MONITOR = {
   position: [DESK_X + MONITOR_OFFSET_X, DESK_TOP, DESK_Z + 0.45] as Vec3,
   yaw: 0,
-  /** Monitor-space z of the casing's front (screen-side) face. Negative = toward the robot. Baked into public/models/pc_monitor.glb, which is already at final size. */
-  frontZ: -0.014,
+  /** Monitor-space z of the casing's front (screen-side) face. 0 = screen flush with GLB z-origin (screen faces -z, toward robot). */
+  frontZ: 0.000,
   /**
-   * Measured on the edited public/models/pc_monitor.glb (metres, monitor space; the file is built by scripts/build-monitor-glb.py):
-   * the casing's width and height (1.95 : 1, as in the reference), the desk-to-casing gap the slim stand spans, and the z of the thin rim's
-   * rear edge and of the flat middle of the rear taper (rim 9 mm, taper rises a further 22 mm).
+   * Measured on public/models/pc_monitor.glb (metres, monitor space; built by scripts/build-monitor-glb.py):
+   * casing 0.60 x 0.375 m (aspect ~1.60), clearance 0.090 m above desk, four-sided sloping rear
+   * (rim rear at z=0.030, flat panel at z=0.060).
    */
-  casing: { width: 0.9797, height: 0.5024, clearance: 0.0875, rimZ: -0.005, panelZ: 0.017 },
-  /** Where the separate OPEN PROJECTS control is anchored on the rear taper, monitor space (x toward the visitor's right). */
-  hotspot: [0.44, 0.34, 0.012] as Vec3,
+  casing: { width: 0.60, height: 0.375, clearance: 0.090, rimZ: 0.030, panelZ: 0.060 },
+  /** Anchor for the OPEN PROJECTS pill (monitor space, x = visitor's right). Pill is no longer monitor-tracked. */
+  hotspot: [0.25, 0.278, 0.065] as Vec3,
 } as const
 
 const monitorPanelCentreY = MONITOR.position[1] + MONITOR.casing.clearance + MONITOR.casing.height / 2

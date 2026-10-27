@@ -43,4 +43,4 @@ No robot, cat, headphones, speaker or office chair exists in that set.
 
 ## Credits (installed models)
 
-- `pc_monitor.glb`: "PC_monitor" by yuuuusukeeee, CC-BY 4.0 (http://creativecommons.org/licenses/by/4.0/), https://sketchfab.com/3d-models/pc-monitor-30ac841584d7432fbca691a2050f3434. Modified: casing re-proportioned and slimmed, rear re-sculpted into a four-sided taper, bracket removed and its hole closed, stand refitted, materials recoloured. Built by `scripts/build-monitor-glb.py` from the unmodified download, which is kept as `pc_monitor.original.glb`. The same credit is stored in the GLB's `asset.extras`.
+- `pc_monitor.glb`: Based on "PC_monitor" by yuuuusukeeee, CC-BY 4.0 (http://creativecommons.org/licenses/by/4.0/), https://sketchfab.com/3d-models/pc-monitor-30ac841584d7432fbca691a2050f3434. Geometry completely rebuilt procedurally by `scripts/build-monitor-glb.py` to match the reference design: four-sided sloping casing with recessed flat centre panel, muted light grey-lilac rear, deep navy rim on all four sides, near-black screen glass, compact stand. The CC-BY 4.0 attribution is retained in the GLB's `asset.extras`.
