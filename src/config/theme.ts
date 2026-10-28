@@ -40,12 +40,25 @@ export const colors = {
   magenta: '#d84fcb',
   amber: '#ffb15c',
   ledAmber: '#b36f26',
-  // Monitor
-  /** Dark blue-black satin casing, and the slightly deeper glossy central rear panel that carries the title. */
-  monitorShell: '#2a2f55',
-  monitorPanel: '#0a0c1e',
-  monitorFrame: '#15161b',
-  monitorText: '#f1ecf4',
+  // Monitor (white_mesh.glb, see scene/monitorModel.ts)
+  /** Rear casing: flat centre panel, muted grey-lilac. */
+  monitorRear: '#cfc0d8',
+  /** The four sloping bevels: close tones of the panel, so the facets stay readable. The top one faces the ceiling light, so it is the deepest. */
+  monitorBevelTop: '#c6b7d1',
+  monitorBevelSide: '#c9bad3',
+  monitorBevelBottom: '#d3c5db',
+  /** Side wall of the casing (between the bevels and the front trim): a touch deeper lavender-grey. */
+  monitorSide: '#beb0c9',
+  /** Narrow trim round the front edge and the frame around the screen: deep navy. */
+  monitorTrim: '#181b38',
+  /** Neck and the sides of the base: dark navy, a touch lighter than the trim. */
+  monitorStand: '#1b1e3a',
+  /** Top face of the base plate: muted lavender. */
+  monitorBaseTop: '#9a8ead',
+  /** Front glass: near-black. */
+  monitorScreen: '#03040a',
+  /** Printed PROJECTS lettering on the rear casing. */
+  monitorLabel: '#ff80b5',
   // Light colours
   amberLight: '#ffc08a',
   moonLight: '#4a78ff',

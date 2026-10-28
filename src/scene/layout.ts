@@ -16,7 +16,7 @@ export const DESK = {
   width: 2.50,
   depth: 0.80,
   /** Extra tabletop toward the visitor (+z), added to the FRONT only. The back edge stays at DESK_Z - depth/2, so the robot, monitor, keyboard and chair (all positioned from DESK_Z) do not move. */
-  frontExtension: 0.35,
+  frontExtension: 0.33,
   /** Slab thickness (m). The tabletop's upper surface stays at DESK_TOP; the slab grows downward. Kept ≤ 0.08 so the robot's knees (top at 0.662 m) clear the underside. */
   topThickness: 0.08,
   /** Solid side supports: thickness, and how far each is inset from the slab's end so the top overhangs. */
@@ -38,7 +38,7 @@ export const onDesk = (x: number) => DESK_X + x
 /**
  * Working setup — physically aligned column: robot, keyboard and monitor share the same world X
  * so the monitor is directly in front of the robot. The monitor screen faces the robot (-z from
- * monitor toward robot); the rear panel with the cyan emblem and PROJECTS label faces the visitor.
+ * monitor toward robot); the rear panel with the PROJECTS label faces the visitor.
  * The robot's head yaw is calculated from the actual monitor position, not assumed to be zero.
  */
 export const ROBOT_POS: Vec3 = [DESK_X, 0, DESK_Z - 0.58]
@@ -58,34 +58,34 @@ export const KEYBOARD_POS: Vec3 = [DESK_X, DESK_TOP, DESK_Z - 0.12]
  */
 export const KEYBOARD_MODEL = {
   yaw: Math.PI / 2,
-  scale: 2.65,
+  scale: 2.60,
   offset: [0, 0, 0.12] as Vec3,
 } as const
 
 /**
- * Monitor â public/models/pc_monitor.glb (see monitorModel.ts and Monitor.tsx). The real screen faces -z (toward the robot); the sculpted
- * rear, with its four-sided sloping casing and recessed flat centre panel, faces +z (toward the visitor).
+ * Monitor — public/models/white_mesh.glb (see monitorModel.ts and Monitor.tsx). The real screen faces -z (toward the robot); the sloping
+ * rear casing and flat centre panel face +z (toward the visitor).
  * Positioned at the SAME world X as the robot so they are physically aligned.
  * yaw: 0 means the screen faces straight toward -z, i.e., directly at the robot.
- * Built procedurally by scripts/build-monitor-glb.py (no original GLB required).
- * Casing 0.60 x 0.375 m (aspect ~1.60), clearance 0.090 m, GLB origin on the desk surface under the casing centre.
+ * The GLB is used as supplied; Monitor.tsx scales and offsets it (MONITOR_MODEL) so its origin is on the desk under the casing centre.
+ * Casing 0.847 x 0.512 m (aspect ~1.65, 13% larger than before), clearance 0.195 m, casing centre 0.451 m above the desk.
  */
 /** Sideways shift of the monitor from the robot's centre line (m, negative = the visitor's left of the robot, as seen from the default camera). 0 puts it exactly in line with the robot. */
 export const MONITOR_OFFSET_X = 0
 
 export const MONITOR = {
-  position: [DESK_X + MONITOR_OFFSET_X, DESK_TOP, DESK_Z + 0.45] as Vec3,
+  position: [DESK_X + MONITOR_OFFSET_X, DESK_TOP, DESK_Z + 0.35] as Vec3,
   yaw: 0,
   /** Monitor-space z of the casing's front (screen-side) face. 0 = screen flush with GLB z-origin (screen faces -z, toward robot). */
   frontZ: 0.000,
   /**
-   * Measured on public/models/pc_monitor.glb (metres, monitor space; built by scripts/build-monitor-glb.py):
-   * casing 0.60 x 0.375 m (aspect ~1.60), clearance 0.090 m above desk, four-sided sloping rear
-   * (rim rear at z=0.030, flat panel at z=0.060).
+   * Measured on public/models/white_mesh.glb after MONITOR_MODEL scaling (metres, monitor space):
+   * casing 0.847 x 0.512 m (aspect ~1.65), clearance 0.195 m above desk (the casing is raised on a longer neck, see monitorModel.ts),
+   * sloping rear (rim rear at z=0.060, flat panel at z=0.117).
    */
-  casing: { width: 0.60, height: 0.375, clearance: 0.090, rimZ: 0.030, panelZ: 0.060 },
+  casing: { width: 0.847, height: 0.512, clearance: 0.195, rimZ: 0.060, panelZ: 0.117 },
   /** Anchor for the OPEN PROJECTS pill (monitor space, x = visitor's right). Pill is no longer monitor-tracked. */
-  hotspot: [0.25, 0.278, 0.065] as Vec3,
+  hotspot: [0.25, 0.451, 0.117] as Vec3,
 } as const
 
 const monitorPanelCentreY = MONITOR.position[1] + MONITOR.casing.clearance + MONITOR.casing.height / 2
@@ -117,13 +117,14 @@ export const ROBOT_HEAD_YAW = Math.atan2(headDx, headDz)
  * +x the visitor's right when seen from the front). Seat top is 0.54. Arms are solved with two-bone IK in robotPose.ts, so
  * moving `wrist` or the shoulder re-poses the arm and the elbow automatically.
  */
+
 export const ROBOT_BODY = {
   hipY: 0.6,
   hipX: 0.1,
   pelvis: { width: 0.33, height: 0.13, depth: 0.25, radius: 0.055, y: 0.6 },
   waistY: 0.69,
   /** Chest spans y 0.71 to 1.00. Slightly bigger than Stage 7 so the torso feels more substantial next to the head. */
-  chest: { width: 0.38, height: 0.33, depth: 0.27, radius: 0.065, y: 0.855 },
+  chest: { width: 0.30, height: 0.36, depth: 0.27, radius: 0.065, y: 0.855 },
   /** Shoulder yoke: its top (y 1.0075) is where the short neck starts. */
   yoke: { width: 0.41, height: 0.065, depth: 0.22, radius: 0.028, y: 0.975 },
   /** Short neck. */
@@ -235,7 +236,7 @@ export const CAMERA = {
    * visitor's right, like the reference: yaw ≈ 40° (right of the desk), pitch ≈ 22° (looking down onto
    * the desk and the robot's hands). Orbit distance ≈ 4.0 m.
    */
-  offset: [2.70, 1.45, 2.67] as Vec3,
+  offset: [2.70, 1.30, 2.67] as Vec3,
   /**
    * The camera looks this far (m) above the orbit pivot. The camera position is unchanged (so what hides what
    * stays the same); only the framing shifts, lifting the shelf, window and pegboard into view and trimming empty floor.

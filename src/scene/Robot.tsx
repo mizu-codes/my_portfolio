@@ -19,7 +19,7 @@ export function Robot() {
   })
 
   return (
-    <group position={ROBOT_POS}>
+    <group position={ROBOT_POS} scale={1.03}>
       <RobotBody />
       {/* Head: screen-faced desktop-companion head (see RobotHead.tsx and ROBOT_HEAD in layout.ts) */}
       <group ref={head} position={ROBOT_HEAD.position} rotation={[ROBOT_HEAD.pitch, ROBOT_HEAD_YAW, 0]}>
