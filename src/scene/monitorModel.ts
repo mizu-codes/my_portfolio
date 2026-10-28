@@ -1,10 +1,11 @@
-import { MeshPhysicalMaterial } from 'three'
-import type { BufferGeometry, Material, Mesh, MeshPhysicalMaterialParameters, Object3D } from 'three'
+import { BufferGeometry, Float32BufferAttribute, MeshPhysicalMaterial } from 'three'
+import type { BufferAttribute, InterleavedBufferAttribute, Material, Mesh, MeshPhysicalMaterialParameters, Object3D } from 'three'
 import { colors } from '../config/theme'
 
 /**
- * public/models/white_mesh.glb is the monitor. Its geometry is used exactly as supplied: nothing here moves, rebuilds or
- * remeshes a vertex. The file was prepared once with smooth vertex normals and split into nine material groups (the same
+ * public/models/white_mesh.glb is the monitor. The file is never edited. At load time the casing's one straight side wall is
+ * shortened front-to-back (see EDGE below: x and y, i.e. the front silhouette, bevels and rear panel are not touched), and the
+ * stand's neck is reshaped as described at NECK; nothing else is moved, rebuilt or remeshed. The file was prepared once with smooth vertex normals and split into nine material groups (the same
  * triangles, only regrouped), named below. Everything is in the model's own units; the scene scale and placement are applied
  * by a wrapper group in Monitor.tsx, never to the mesh.
  *
@@ -85,6 +86,50 @@ const NECK = {
 const BASE_DEPTH = { oldFrontZ: -0.337, frontZ: -0.12, keep: 0.5 }
 const shrinkBaseZ = (z: number) => BASE_DEPTH.frontZ + (z - BASE_DEPTH.oldFrontZ) * BASE_DEPTH.keep
 
+/**
+ * Side-edge finish. Measured on the GLB (model units), the casing's profile from the rear is: flat rear panel (z 0.190) -> sloping
+ * bevel -> a small rounded shoulder (z 0.074 .. 0.043) -> a perfectly straight wall (z 0.043 .. -0.051, normals purely sideways)
+ * -> the front round-over, navy trim and glass (z -0.051 .. -0.081). That straight wall is about 0.094 deep (4 cm in the scene) on
+ * all four sides and is what reads as a thick, unfinished slab from the visitor's camera.
+ *
+ * Only that straight wall is shortened. Every casing vertex is remapped in z alone:
+ *  - z >= `wallRearZ`: unchanged (rear panel, bevels and the shoulder keep their exact shape and position, so the lettering, the
+ *    hotspot and the neck junction do not move);
+ *  - `wallFrontZ` <= z < `wallRearZ`: compressed towards the rear by `keep` (the wall is flat, so this changes no normal);
+ *  - z < `wallFrontZ`: moved rigidly, so the front round-over, navy trim and glass keep their exact shape, and x / y (the front
+ *    silhouette, width, height) are untouched.
+ * `keep` is limited by the neck: its front face is at z -0.015, so the flat underside must still begin in front of it. At 0.6 the
+ * flat underside begins at z -0.013, the neck meets it cleanly, and the casing front comes back 1.6 cm. Lower = slimmer, but below
+ * about 0.55 the neck would break through the casing's lower front edge.
+ */
+const EDGE = { wallRearZ: 0.043, wallFrontZ: -0.051, keep: 0.6 }
+const EDGE_SHIFT = (EDGE.wallRearZ - EDGE.wallFrontZ) * (1 - EDGE.keep)
+
+function squeezeZ(z: number): number {
+  if (z >= EDGE.wallRearZ) return z
+  if (z >= EDGE.wallFrontZ) return EDGE.wallRearZ + (z - EDGE.wallRearZ) * EDGE.keep
+  return z + EDGE_SHIFT
+}
+
+type Attr = BufferAttribute | InterleavedBufferAttribute
+
+/** Applies squeezeZ to a casing position attribute and keeps its normals correct (the inverse-transpose of a z scale divides nz by the scale). */
+function squeezeCasing(pos: Attr, nor: Attr | undefined): { pos: Float32BufferAttribute; nor?: Float32BufferAttribute } {
+  const p = new Float32BufferAttribute(pos.count * 3, 3)
+  const n = nor ? new Float32BufferAttribute(nor.count * 3, 3) : undefined
+  for (let i = 0; i < pos.count; i++) {
+    const z = pos.getZ(i)
+    p.setXYZ(i, pos.getX(i), pos.getY(i), squeezeZ(z))
+    if (n && nor) {
+      const inWall = z >= EDGE.wallFrontZ && z < EDGE.wallRearZ
+      const nz = inWall ? nor.getZ(i) / EDGE.keep : nor.getZ(i)
+      const len = Math.hypot(nor.getX(i), nor.getY(i), nz) || 1
+      n.setXYZ(i, nor.getX(i) / len, nor.getY(i) / len, nz / len)
+    }
+  }
+  return { pos: p, nor: n }
+}
+
 export const MONITOR_MODEL = {
   scale: [SCALE_X, SCALE_Y, SCALE] as [number, number, number],
   offset: [-SRC.centreX * SCALE_X, -SRC.baseY * SCALE_Y, -SRC.frontZ * SCALE] as [number, number, number],
@@ -102,7 +147,8 @@ const FINISH: Record<string, MeshPhysicalMaterialParameters> = {
   [BEVEL_TOP]: { color: colors.monitorBevelTop, ...SATIN },
   [BEVEL_SIDE]: { color: colors.monitorBevelSide, ...SATIN },
   [BEVEL_BOTTOM]: { color: colors.monitorBevelBottom, ...SATIN },
-  [SIDE]: { color: colors.monitorSide, ...SATIN, roughness: 0.55 },
+  // The wall and its shoulder: same colour as before, a touch more polish so the shoulder catches a fine highlight line and the edge reads as finished.
+  [SIDE]: { color: colors.monitorSide, ...SATIN, roughness: 0.46, clearcoat: 0.22, clearcoatRoughness: 0.35 },
   [TRIM]: { color: colors.monitorTrim, roughness: 0.38, metalness: 0.18, clearcoat: 0.25, clearcoatRoughness: 0.35 },
   [SCREEN]: { color: colors.monitorScreen, roughness: 0.12, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.1 },
   [STAND]: { color: colors.monitorStand, roughness: 0.45, metalness: 0.2, clearcoat: 0.15, clearcoatRoughness: 0.45 },
@@ -148,14 +194,30 @@ function reshapeStand(source: BufferGeometry): BufferGeometry {
   return g
 }
 
+/** A copy of a casing primitive's geometry with the wall shortened as described at EDGE; the triangles and the index are unchanged. */
+function squeezeCasingGeometry(source: BufferGeometry, cache: Map<Attr, { pos: Float32BufferAttribute; nor?: Float32BufferAttribute }>): BufferGeometry {
+  const srcPos = source.getAttribute('position') as Attr
+  const srcNor = source.getAttribute('normal') as Attr | undefined
+  let out = cache.get(srcPos)
+  if (!out) { out = squeezeCasing(srcPos, srcNor); cache.set(srcPos, out) }
+  const g = new BufferGeometry()
+  g.setAttribute('position', out.pos)
+  if (out.nor) g.setAttribute('normal', out.nor)
+  g.setIndex(source.index)
+  g.computeBoundingBox(); g.computeBoundingSphere()
+  return g
+}
+
 /**
- * A copy of the loaded model with the finishes above assigned by material name, shadows set, the casing raised by LIFT and the
- * stand's neck reshaped (the loader's cached scene, its geometry and its placeholder materials are left untouched). The glass
+ * A copy of the loaded model with the finishes above assigned by material name, shadows set, the casing's wall shortened (EDGE), the
+ * casing raised by LIFT and the stand's neck reshaped (the loader's cached scene, its geometry and its placeholder materials are left untouched). The glass
  * takes shadows but does not cast them. The caller disposes the returned materials and geometries.
  */
 export function prepareMonitor(root: Object3D): { model: Object3D; materials: MeshPhysicalMaterial[]; geometries: BufferGeometry[] } {
   const materials = new Map<string, MeshPhysicalMaterial>()
   const geometries: BufferGeometry[] = []
+  // All casing primitives share one vertex buffer in the file, so each is remapped once and the result shared.
+  const squeezed = new Map<Attr, { pos: Float32BufferAttribute; nor?: Float32BufferAttribute }>()
   const model = root.clone(true)
   model.traverse((o) => {
     const mesh = o as Mesh
@@ -172,6 +234,7 @@ export function prepareMonitor(root: Object3D): { model: Object3D; materials: Me
     } else if (name === BASE_TOP) {
       mesh.geometry = shrinkBase(mesh.geometry); geometries.push(mesh.geometry)
     } else {
+      mesh.geometry = squeezeCasingGeometry(mesh.geometry, squeezed); geometries.push(mesh.geometry)
       mesh.position.y += LIFT
     }
     mesh.castShadow = name !== SCREEN
