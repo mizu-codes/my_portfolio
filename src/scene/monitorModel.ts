@@ -34,11 +34,6 @@ const BASE_TOP = 'monitor_base_top'
 /** Anchors measured on the GLB, in model units: casing centre x, underside of the base, front face of the casing, rear flat panel. */
 const SRC = { centreX: -0.019519, baseY: -0.733481, frontZ: -0.081209, rearZ: 0.190830, panelCentreY: 0.0865 } as const
 
-/**
- * Uniform scale from the GLB's units to metres: 0.332 (the first fit) x 1.15 (the previous enlargement) x 1.13 (this refinement),
- * so the casing reads 13% larger again with its aspect, bevels and slopes exactly as modelled. Casing 0.847 x 0.512 m.
- * The base and neck scale with it (base 0.48 x 0.31 m).
- */
 const CASING_SCALE = 1.13
 const SCALE = 0.332 * 1.15 * CASING_SCALE   // depth (z) reference
 const WIDE = 1.10                           // try 1.05–1.20
@@ -46,23 +41,8 @@ const SCALE_X = SCALE * WIDE                // width
 const TALL = 1.12
 const SCALE_Y = SCALE * TALL                // height
 
-/**
- * How far (m) the casing and the upper part of the neck are raised above where the one-piece model puts them. The base stays on
- * the desk and the neck is extended by the same amount, so the casing's lower edge clears the keyboard and its top reaches the
- * robot's eye line from the central camera. The trade-off is a longer visible neck, which is why the neck is also made broader.
- */
 const LIFT_M = 0.0              // try 0.0 first, then -0.02 to match the reference
 const LIFT = LIFT_M / SCALE_Y   // replaces the old LIFT line
-
-/**
- * Neck reshaping, in model units. The neck is a straight, flat-sided prism between the base plate (top at y -0.648) and the
- * casing's underside (y about -0.49), so it can be lengthened and broadened without bending any bevel:
- *  - every stand vertex above `splitY` (the prismatic part of the neck, and the cradle inside the casing) moves up by LIFT, which
- *    extrudes the prism; the casing meshes move up by the same amount;
- *  - the neck vertices (selected by `box`) are scaled about the neck's own centre: `widen` across x, `deepen` along z.
- * The base is not touched, and neither is any casing vertex. This runs on a clone of the stand's geometry at load time; the GLB
- * file is unchanged.
- */
 
 const NECK = {
   splitY: -1.56,
@@ -74,35 +54,11 @@ const NECK = {
   box: { minY: -0.6645, halfX: 0.21, minZ: -0.03, maxZ: 0.12 },
 } as const
 
-/**
- * Base plate depth (model units, z). The plate is remapped linearly from its original span (front edge -0.377, rear edge 0.338,
- * so 0.715 deep) to a span `keep` times as deep that starts at `frontZ`. Because the window is placed under the neck
- * (z -0.024 … 0.105 after reshaping), the neck stays on the plate with room on both sides at any `keep` of about 0.4 or more.
- *  - `keep`: 1 = original depth, 0.5 = half.
- *  - `frontZ`: where the plate's front edge (the one facing the robot and keyboard) ends up. Move it towards 0.03 to pull the
- *    front edge further back from the keyboard (keep the neck's front, -0.024, at least 0.06 in front of it), or more negative
- *    to bring it forward again. The casing's front face is at z -0.081.
- */
+
 const BASE_DEPTH = { oldFrontZ: -0.337, frontZ: -0.12, keep: 0.5 }
 const shrinkBaseZ = (z: number) => BASE_DEPTH.frontZ + (z - BASE_DEPTH.oldFrontZ) * BASE_DEPTH.keep
 
-/**
- * Side-edge finish. Measured on the GLB (model units), the casing's profile from the rear is: flat rear panel (z 0.190) -> sloping
- * bevel -> a small rounded shoulder (z 0.074 .. 0.043) -> a perfectly straight wall (z 0.043 .. -0.051, normals purely sideways)
- * -> the front round-over, navy trim and glass (z -0.051 .. -0.081). That straight wall is about 0.094 deep (4 cm in the scene) on
- * all four sides and is what reads as a thick, unfinished slab from the visitor's camera.
- *
- * Only that straight wall is shortened. Every casing vertex is remapped in z alone:
- *  - z >= `wallRearZ`: unchanged (rear panel, bevels and the shoulder keep their exact shape and position, so the lettering, the
- *    hotspot and the neck junction do not move);
- *  - `wallFrontZ` <= z < `wallRearZ`: compressed towards the rear by `keep` (the wall is flat, so this changes no normal);
- *  - z < `wallFrontZ`: moved rigidly, so the front round-over, navy trim and glass keep their exact shape, and x / y (the front
- *    silhouette, width, height) are untouched.
- * `keep` is limited by the neck: its front face is at z -0.015, so the flat underside must still begin in front of it. At 0.6 the
- * flat underside begins at z -0.013, the neck meets it cleanly, and the casing front comes back 1.6 cm. Lower = slimmer, but below
- * about 0.55 the neck would break through the casing's lower front edge.
- */
-const EDGE = { wallRearZ: 0.043, wallFrontZ: -0.051, keep: 0.6 }
+const EDGE = { wallRearZ: 0.043, wallFrontZ: -0.051, keep: 0.4 }
 const EDGE_SHIFT = (EDGE.wallRearZ - EDGE.wallFrontZ) * (1 - EDGE.keep)
 
 function squeezeZ(z: number): number {
@@ -208,11 +164,6 @@ function squeezeCasingGeometry(source: BufferGeometry, cache: Map<Attr, { pos: F
   return g
 }
 
-/**
- * A copy of the loaded model with the finishes above assigned by material name, shadows set, the casing's wall shortened (EDGE), the
- * casing raised by LIFT and the stand's neck reshaped (the loader's cached scene, its geometry and its placeholder materials are left untouched). The glass
- * takes shadows but does not cast them. The caller disposes the returned materials and geometries.
- */
 export function prepareMonitor(root: Object3D): { model: Object3D; materials: MeshPhysicalMaterial[]; geometries: BufferGeometry[] } {
   const materials = new Map<string, MeshPhysicalMaterial>()
   const geometries: BufferGeometry[] = []
