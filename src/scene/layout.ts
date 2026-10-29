@@ -55,11 +55,13 @@ export const KEYBOARD_POS: Vec3 = [DESK_X, DESK_TOP, DESK_Z - 0.12]
  *   instead of on the outer columns.
  * - offset (m, world): toward +z moves the board toward the monitor so the fingertips (z about DESK_Z - 0.06) rest over the home
  *   (Z/A) rows. The old procedural board was deeper and centred further back.
+ *   offset[0] = -0.07 slides the board toward the robot's right (-x) so the F/J home keys, which sit about 0.07 m off the 75% board's
+ *   centre toward the function-key end, land on the robot's centre line, between the two hands. The mouse is derived from the board's edge, so it moves with it.
  */
 export const KEYBOARD_MODEL = {
   yaw: Math.PI / 2,
   scale: 2.60,
-  offset: [0, 0, 0.12] as Vec3,
+  offset: [-0.07, 0, 0.12] as Vec3,
 } as const
 
 /**
@@ -123,25 +125,24 @@ export const ROBOT_BODY = {
   hipX: 0.1,
   pelvis: { width: 0.33, height: 0.13, depth: 0.25, radius: 0.055, y: 0.6 },
   waistY: 0.69,
-  /** Chest spans y 0.71 to 1.00. Slightly bigger than Stage 7 so the torso feels more substantial next to the head. */
+  /** Chest spans y 0.675 to 1.035. Slightly bigger than Stage 7 so the torso feels more substantial next to the head. The neck seat ring sits on its top. */
   chest: { width: 0.30, height: 0.36, depth: 0.27, radius: 0.065, y: 0.855 },
-  /** Shoulder yoke: its top (y 1.0075) is where the short neck starts. */
-  yoke: { width: 0.41, height: 0.065, depth: 0.22, radius: 0.028, y: 0.975 },
   /** Short neck. */
   neck: { radius: 0.04, bottomY: 0.98, topY: 1.09, ringYs: [1.026, 1.046] as number[] },
-  shoulder: { x: 0.24, y: 0.945, z: 0, capRadius: 0.062 },
+  /** The shoulder caps sit directly against the chest sides (chest half-width 0.15, cap half-width 0.056) now that the shoulder yoke plate is gone. */
+  shoulder: { x: 0.20, y: 0.945, z: 0, capRadius: 0.062 },
   upperArm: 0.26,
   foreArm: 0.26,
   armRadius: 0.038,
   /** Hands are drawn larger than the arm they sit on, so the typing reads from the default camera. Scales the hand only. */
   handScale: 1.45,
-  /** How much of the forearm's sideways angle the hand follows (0 = hands point straight ahead, 1 = in line with the forearm). Keeps the two hands from crossing. */
-  handYawFactor: 0.35,
-  /** Wrist target relative to the robot origin, per side (x is mirrored). The hand continues past it, over the keys. */
-  wrist: [0.190, 0.862, 0.372] as Vec3,
-  /** Direction the elbow wants to swing (x is mirrored): out and down. */
-  elbowHint: [0.7, -0.8, -0.15] as Vec3,
-  /** How far the hand pitches down past the forearm direction (rad), so the fingertips reach the keys. */
+  /** How much of the forearm's sideways angle the hand follows (0 = hands point straight ahead, 1 = in line with the forearm). Kept low so the hands sit nearly straight on the keys and the fingertips never point at each other, even though the forearms angle in. */
+  handYawFactor: 0.25,
+  /** Wrist target relative to the robot origin, per side (x is mirrored). The hand continues past it, over the keys. y and z are unchanged from the original so the fingertips keep the same height over the keycaps. */
+  wrist: [0.150, 0.862, 0.372] as Vec3,
+  /** Direction the elbow wants to swing (x is mirrored): out and down. The elbows sit just outside the torso and the forearms angle in to the keys (about 35 degrees), as in the reference pose. */
+  elbowHint: [0.1, -0.8, -0.15] as Vec3,
+  /** How far the hand pitches down past the forearm direction (rad), so the fingertips reach the keys. Solved for the current wrist and elbow so the hand's final pitch, and so the fingertip height over the keys, equals the original. */
   handPitch: 0.42,
   thighRadius: 0.062,
   shinRadius: 0.05,
@@ -157,23 +158,23 @@ export const ROBOT_HEAD = {
   position: [0, 1.245, 0] as Vec3,
   /** Resting pitch (rad). Positive tips the face down a little, towards the desk and monitor. */
   pitch: 0.04,
-  casing: { width: 0.40, height: 0.32, depth: 0.235, radius: 0.042 },
+  casing: { width: 0.36, height: 0.32, depth: 0.235, radius: 0.04 },
   /**
-   * Display frame, layered from the outside in: a glossy black outer frame (`frameWidth` wide, `thickness` tall), a lower graphite step
-   * (`stepWidth` wide, `stepThickness` tall), then the black glass sitting below the step, so the screen reads as inset. The outer
-   * size must fit the flat part of the front face (casing minus its rounded edges). `offsetY` moves the whole display up (+) or down (-).
+   * Display module, layered from the outside in: a glossy black outer frame (`frameWidth` wide, `thickness` tall, standing out of the
+   * casing's front face), a slightly lower graphite step (`stepThickness` tall), then the black glass sitting `recess` below the frame's
+   * front rim. `offsetY` moves the whole display up (+) or down (-).
    */
-  bezel: { width: 0.312, height: 0.216, radius: 0.028, thickness: 0.0065, offsetY: -0.008, /** Soft rounded edge on the frame layers (m); the outer size does not change. */ bevel: 0.0014, frameWidth: 0.008, stepWidth: 0.005, stepThickness: 0.0035 },
+  bezel: { width: 0.290, height: 0.232, radius: 0.034, /** How far the display module stands out of the casing's front face (m). */ thickness: 0.022, offsetY: -0.008, /** Soft rounded edge on the frame layers (m); the outer size does not change. */ bevel: 0.002, frameWidth: 0.013, stepWidth: 0.006, stepThickness: 0.019, /** How far the glass sits below the module's front rim (m). */ recess: 0.0045 },
   /** Flat black glass, centred on the bezel. It equals the bezel minus both frame layers. */
-  screen: { width: 0.286, height: 0.19, radius: 0.015 },
+  screen: { width: 0.252, height: 0.194, radius: 0.016 },
   /** Eyes: `spacing` is centre to centre, `offsetY` is relative to the glass centre. (Glass centre is -0.008, so the eyes sit at the same head-local height as before.) */
-  eyes: { width: 0.053, height: 0.066, radius: 0.023, spacing: 0.142, offsetY: 0.038 },
+  eyes: { width: 0.053, height: 0.066, radius: 0.023, spacing: 0.134, offsetY: 0.038 },
   /**
    * Mouth: one short, thin horizontal capsule below the eyes. `offsetY` is relative to the glass centre. Its head-local height is
    * unchanged (-0.060): the top edge of the monitor, seen from the default camera, cuts across the glass a little below that, so
    * anything lower starts to be clipped by the monitor.
    */
-  mouth: { width: 0.10, thickness: 0.010, offsetY: -0.052 },
+  mouth: { width: 0.10, thickness: 0.013, offsetY: -0.052 },
   /** Cyan ring of the side modules. */
   accents: { ringRadius: 0.036, ringTube: 0.0035 },
   /** Ear modules on each side of the casing. */
@@ -183,7 +184,7 @@ export const ROBOT_HEAD = {
    * (`arcDeg` is how far it wraps down the curve). `width` is along x and is kept inside the flat part of the top so it never floats
    * over the rounded corners; `back` is its rear edge (head-local z); `sink` is how far it is buried in the casing.
    */
-  plate: { width: 0.30, thickness: 0.0055, sink: 0.002, bevel: 0.0012, back: 0.048, arcDeg: 55 },
+  plate: { width: 0.27, thickness: 0.0055, sink: 0.002, bevel: 0.0012, back: 0.048, arcDeg: 55 },
   /** Antennae: wire radius, base spacing either side of centre, and the stem (head-local x is mirrored per side). */
   antenna: {
     wire: 0.0028,

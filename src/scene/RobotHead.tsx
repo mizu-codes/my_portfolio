@@ -11,8 +11,6 @@ import { prefersReducedMotion } from './motion'
 import { roundedRectShape } from './shapes'
 import { softGlowTexture } from './textures'
 
-/** The glass sits this far above the casing's front face, i.e. below the top of the graphite step, so the screen reads as inset. */
-const GLASS_Z = 0.0012
 /** Each frame layer tucks this far under the next one outwards so no sliver of white shows between layers. */
 const LAYER_OVERLAP = 0.0015
 
@@ -114,9 +112,11 @@ export function RobotHead({ expression, gaze }: { expression?: ExpressionName; g
   const glassShape = useMemo(() => roundedRectShape(screen.width + 2 * LAYER_OVERLAP, screen.height + 2 * LAYER_OVERLAP, screen.radius + LAYER_OVERLAP), [screen.width, screen.height, screen.radius])
 
   // The frame is flat, so it must fit inside the flat part of the front face (the casing minus its rounded edges).
+  // The module stands well proud of the casing, so its rim may overhang the flat part a little (the casing curves away by well under a millimetre there).
   const flatW = w - 2 * r
   const flatH = h - 2 * r
-  if (import.meta.env.DEV && (bezel.width > flatW || bezel.height + 2 * Math.abs(bezel.offsetY) > flatH)) {
+  const OVERHANG = 0.016
+  if (import.meta.env.DEV && (bezel.width > flatW + OVERHANG || bezel.height + 2 * Math.abs(bezel.offsetY) > flatH + OVERHANG)) {
     console.warn(`RobotHead: display frame (${bezel.width} x ${bezel.height}) does not fit the flat front face (${flatW.toFixed(3)} x ${flatH.toFixed(3)}).`)
   }
 
@@ -157,14 +157,15 @@ export function RobotHead({ expression, gaze }: { expression?: ExpressionName; g
 
   // Cyan indicator bars on the plate's front slope, bunched towards the +x end (the side with the ear module). [centre x, width]
   const barPhi = (30 * Math.PI) / 180
-  const bars: [number, number][] = [[0.094, 0.022], [0.1145, 0.009], [0.1265, 0.005]]
+  const bars: [number, number][] = [[0.086, 0.022], [0.1065, 0.009], [0.1185, 0.005]]
   const barR = r + plate.thickness + 0.0004
   const barY = arc.yc + barR * Math.cos(barPhi)
   const barZ = arc.zc + barR * Math.sin(barPhi)
   const barGlow = useMemo(() => softGlowTexture(), [])
 
   const frontZ = d / 2
-  const glassZ = frontZ + GLASS_Z
+  // The glass sits `recess` below the module's front rim, which itself stands `thickness` out of the casing: the screen is a raised, exposed display.
+  const glassZ = frontZ + bezel.thickness - bezel.recess
   const sideX = w / 2
 
   return (

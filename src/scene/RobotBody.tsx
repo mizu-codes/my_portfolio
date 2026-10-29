@@ -36,8 +36,9 @@ function Bone({ from, to, children }: { from: Vec3; to: Vec3; children: (length:
 }
 
 function Torso() {
-  const { pelvis, chest, yoke, neck, waistY, shoulder } = ROBOT_BODY
+  const { pelvis, chest, neck, waistY, shoulder } = ROBOT_BODY
   const chestFrontZ = chest.depth / 2
+  const chestTopY = chest.y + chest.height / 2
   const plateY = chest.y + 0.012
   return (
     <group>
@@ -64,9 +65,6 @@ function Torso() {
         <meshBasicMaterial color={colors.cyan} toneMapped={false} />
       </mesh>
 
-      {/* Shoulder yoke: a wider layered plate over the top of the chest */}
-      <Box size={[yoke.width, yoke.height, yoke.depth]} position={[0, yoke.y, 0]} radius={yoke.radius} {...PANEL} />
-
       {/* Neck: dark core with three thin collar rings, a white seat ring and one cyan accent */}
       <mesh position={[0, (neck.bottomY + neck.topY) / 2, 0]} castShadow>
         <cylinderGeometry args={[neck.radius, neck.radius, neck.topY - neck.bottomY, 20]} />
@@ -78,11 +76,11 @@ function Torso() {
           <meshStandardMaterial {...PANEL} />
         </mesh>
       ))}
-      <mesh position={[0, yoke.y + yoke.height / 2 + 0.002, 0]} rotation={[Math.PI / 2, 0, 0]}>
+      <mesh position={[0, chestTopY + 0.002, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.057, 0.012, 10, 32]} />
         <meshStandardMaterial {...SHELL} />
       </mesh>
-      <CyanRing radius={0.0575} position={[0, yoke.y + yoke.height / 2 + 0.013, 0]} rotation={[Math.PI / 2, 0, 0]} />
+      <CyanRing radius={0.0575} position={[0, chestTopY + 0.013, 0]} rotation={[Math.PI / 2, 0, 0]} />
 
       {/* Shoulder caps with a dark joint disc and a cyan ring on the outer face */}
       {[-1, 1].map((s) => (
