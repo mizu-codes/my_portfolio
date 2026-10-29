@@ -160,12 +160,15 @@ export const softGlowTexture = () =>
 export const LABEL_ASPECT = 4
 
 /**
- * Rear-panel label for the monitor: one widely spaced word in a medium-light sans with a short rule centred beneath it, flat colour with a fine deeper keyline on a
- * transparent background so it reads as printed on the casing. The page font may not have loaded when the monitor mounts, so the
- * texture is drawn once straight away and again as soon as the font is ready. Not cached: the caller disposes it.
- * The word fills 78% of the canvas width; the word and its rule are centred together.
+ * Rear-panel label for the monitor: one widely spaced word in a regular-weight monospace, flat colour on a
+ * transparent background so it reads as printed on the casing. No rule, underline or outline. The page font may not have loaded when the
+ * monitor mounts, so the texture is drawn once straight away and again as soon as the font is ready. Not cached: the caller disposes it.
+ * `emScale` multiplies the type size relative to the original lettering (which spanned 98% of a 0.54 m plane at 0.16 em tracking);
+ * `fill` is the share of the canvas width the tracked word spans, so the tracking absorbs whatever room is left. The word is centred
+ * both ways.
  */
-export function labelTexture(text: string, fontFamily: string, color: string): CanvasTexture {
+export function labelTexture(text: string, fontFamily: string, color: string, opts: { emScale?: number; fill?: number; weight?: number } = {}): CanvasTexture {
+  const { emScale = 1, fill = 0.98, weight = 400 } = opts
   const w = 2048
   const h = w / LABEL_ASPECT
   const c = document.createElement('canvas')
@@ -177,47 +180,33 @@ export function labelTexture(text: string, fontFamily: string, color: string): C
 
   const draw = () => {
     g.clearRect(0, 0, w, h)
-    const weight = 800
-    // Size the type so the tracked word spans 78% of the width, whatever font is in use.
     const probe = 100
     g.font = `${weight} ${probe}px ${fontFamily}`
-    const trackEm = 0.16
-    const widthAt = (px: number) => [...text].reduce((a, ch) => a + g.measureText(ch).width * (px / probe), 0) + trackEm * px * (text.length - 1)
-    const size = probe * (w * 0.98) / widthAt(probe)
-    const tracking = trackEm * size
+    const refTrackEm = 0.16
+    const glyphsAt = (px: number) => [...text].reduce((a, ch) => a + g.measureText(ch).width * (px / probe), 0)
+    // The original size: the word at 0.16 em tracking spanning 98% of the width. The new size is that, scaled.
+    const baseSize = probe * (w * 0.98) / (glyphsAt(probe) + refTrackEm * probe * (text.length - 1))
+    const size = baseSize * emScale
     g.font = `${weight} ${size}px ${fontFamily}`
     g.textBaseline = 'alphabetic'
     g.textAlign = 'left'
     const widths = [...text].map((ch) => g.measureText(ch).width)
-    const total = widths.reduce((a, b) => a + b, 0) + tracking * (text.length - 1)
+    const glyphs = widths.reduce((a, b) => a + b, 0)
+    // Spread the remaining width over the gaps, never tighter than 0.04 em.
+    const tracking = Math.max(0.04 * size, (w * fill - glyphs) / Math.max(1, text.length - 1))
+    const total = glyphs + tracking * (text.length - 1)
     const x0 = (w - total) / 2
     const cap = size * 0.7
-    const ruleGap = cap * 0.75
-    const ruleH = Math.max(3, cap * 0.07)
-    const block = cap + ruleGap + ruleH
-    const baseline = (h - block) / 2 + cap
-    // A fine, slightly deeper rose keyline under the pink fill: it separates the letters from the pale casing (the pink alone is
-    // close to it in brightness) without a glow, a plate or a heavier face. The fill stays the requested pink.
-    const keyline = 'rgba(158, 52, 100, 0.55)'
-    const lw = Math.max(2.5, size * 0.012)
-    const ruleW = total * 0.34
-    g.lineJoin = 'round'
-    g.lineWidth = lw
-    g.strokeStyle = keyline
-    let x = x0
-    for (let i = 0; i < text.length; i++) { g.strokeText(text[i], x, baseline); x += widths[i] + tracking }
-    g.fillStyle = keyline
-    g.fillRect((w - ruleW) / 2 - lw / 2, baseline + ruleGap - lw / 2, ruleW + lw, ruleH + lw)
+    const baseline = (h + cap) / 2
     g.fillStyle = color
-    x = x0
+    let x = x0
     for (let i = 0; i < text.length; i++) { g.fillText(text[i], x, baseline); x += widths[i] + tracking }
-    g.fillRect((w - ruleW) / 2, baseline + ruleGap, ruleW, ruleH)
     t.needsUpdate = true
   }
 
   draw()
   const fonts = document.fonts
-  if (fonts) fonts.load(`500 100px ${fontFamily}`).then(draw).catch(() => {})
+  if (fonts) fonts.load(`${weight} 100px ${fontFamily}`).then(draw).catch(() => {})
   return t
 }
 

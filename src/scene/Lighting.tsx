@@ -23,6 +23,9 @@ const ROBOT_AIM: Vec3 = [ROBOT_POS[0], 1.2, ROBOT_POS[2]]
 /** Cool wash from the screen: a point just in front of it, between the monitor and the robot. */
 const SCREEN_GLOW: Vec3 = [MONITOR.position[0] + MONITOR_FACING[0] * 0.35, MONITOR_PANEL_CENTRE_Y, MONITOR.position[2] + MONITOR_FACING[1] * 0.35]
 
+/** Soft fill for the monitor's rear: in front of it (the visitor's side), a little to the right and above its centre. Every other strong light is behind the monitor, so its rear shell and bevels would otherwise get only ambient light. */
+const REAR_FILL: Vec3 = [MONITOR.position[0] + 0.9, MONITOR_PANEL_CENTRE_Y + 0.25, MONITOR.position[2] + 1.5]
+
 /**
  * Warm, dark interior: amber is the dominant colour of the room's light. Blue is limited to a narrow moon rim light
  * on the robot and a short-range glow near the window. Three.js uses physical units, so intensities are tuned by eye.
@@ -35,6 +38,9 @@ export function Lighting() {
       <ambientLight color={colors.ambient} intensity={0.5} />
       <hemisphereLight args={['#4c5a86', '#3a2a24', 0.2]} />
       <directionalLight color="#e8c9b0" position={[0.5, 3, 5]} intensity={0.22} />
+
+      {/* Dim, short-range, shadowless fill so the back of the monitor reads from the room view; it barely reaches anything else */}
+      <pointLight color="#d9c8c4" position={REAR_FILL} intensity={2.0} distance={3.0} />
 
       {/* Window: cool moon rim on the robot and chair, plus a short-range glow on the nearby wall */}
       {!lowPower && (

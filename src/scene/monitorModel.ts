@@ -1,192 +1,154 @@
-import { BufferGeometry, Float32BufferAttribute, MeshPhysicalMaterial } from 'three'
-import type { BufferAttribute, InterleavedBufferAttribute, Material, Mesh, MeshPhysicalMaterialParameters, Object3D } from 'three'
+import { BufferAttribute, BufferGeometry, MeshPhysicalMaterial, Quaternion, Vector3 } from 'three'
+import type { Material, Mesh, MeshPhysicalMaterialParameters, Object3D } from 'three'
 import { colors } from '../config/theme'
 
 /**
- * public/models/white_mesh.glb is the monitor. The file is never edited. At load time the casing's one straight side wall is
- * shortened front-to-back (see EDGE below: x and y, i.e. the front silhouette, bevels and rear panel are not touched), and the
- * stand's neck is reshaped as described at NECK; nothing else is moved, rebuilt or remeshed. The file was prepared once with smooth vertex normals and split into nine material groups (the same
- * triangles, only regrouped), named below. Everything is in the model's own units; the scene scale and placement are applied
- * by a wrapper group in Monitor.tsx, never to the mesh.
+ * public/models/monitor.glb is the monitor ("Monitor | Computer | Realistic Computer Monitor" by Model Wala, CC BY 4.0, see
+ * public/models/CREDITS.md). The file and its geometry are used exactly as supplied: no vertex, normal, index or UV is touched,
+ * nothing is rebuilt or remeshed. The only things this module does are (1) swap the four materials for the portfolio's finishes and
+ * (2) give Monitor.tsx the numbers for a single wrapper transform (MONITOR_MODEL).
  *
- * Model space (measured on the file): +z is the rear (faces the visitor), -z the front/screen (faces the robot), +y up.
- *  - monitor_panel:        flat centre of the rear shell
- *  - monitor_bevel_*:      the four sloping bevels of the rear shell (top / side / bottom; both sides share one group)
- *  - monitor_side:         side wall of the casing, between the bevels and the front trim
- *  - monitor_trim:         narrow navy trim along the front edge of the wall, and the raised frame round the screen
- *  - monitor_screen:       the recessed flat front glass
- *  - monitor_stand:        neck, and the sides/underside of the base
- *  - monitor_base_top:     top face of the base plate
- * The PROJECTS lettering is not part of the mesh (the rear panel is perfectly flat), so Monitor.tsx lays it on as a separate plane.
+ * The file is one mesh ("Cube.001", node scale 0.866 x 0.045 x 0.304 baked into the node by the exporter) with four primitives.
+ * Measured in the model's own units (after the node transform), +y up, the screen faces +z and the rear faces -z:
+ *  - Material.004   screen quad at z = 0.180, 3.03 x 1.84, carrying an emissive Windows-wallpaper texture   -> near-black glass
+ *  - Material.005   the casing: front bezel, side wall and the rear shell with its flat rear panel at z = -0.121
+ *                   (x -1.06 … 1.127, y 0.709 … 2.037); casing 3.118 x 1.894, front face z = 0.216                  -> charcoal-navy
+ *  - "White metal"  the small mount plate between the stand's neck and the casing (y 0.348 … 0.443)                -> lighter navy satin metal
+ *  - "Black metal"  the neck and the base plate, 1.732 x 0.608, resting on y = 0.033                                 -> deep navy satin metal
+ * The casing is one primitive, but its triangles fall into clean groups by face direction (measured on the file): the flat rear panel
+ * (normal 0,0,-1), the four sloping bevels of the rear shell (top 0,.63,-.78; bottom 0,-.63,-.78; sides ±.44,0,-.9) and everything else (the
+ * wall and the front bezel). prepareMonitor regroups the same triangles into those material groups so each facet can carry its own
+ * close navy tone, as the previous monitor's bevels did. Positions, normals, UVs and the triangles themselves are not changed; only
+ * their order in the index buffer, which is what a material group needs.
+ * The model has no separate accent surfaces (no LED, logo or trim ring), so the cyan and pink accents are not applied to the mesh.
+ * The scene's monitor faces -z, so the model is turned half a turn about y (see MONITOR_MODEL).
  */
 
-/** Names of the material groups inside white_mesh.glb. */
+/** Names of the materials inside monitor.glb. */
+const SCREEN = 'Material.004'
+const CASING = 'Material.005'
+const MOUNT = 'White metal'
+const STAND = 'Black metal'
+/** Names given to the casing's regrouped facets (not in the file). */
 const PANEL = 'monitor_panel'
 const BEVEL_TOP = 'monitor_bevel_top'
 const BEVEL_SIDE = 'monitor_bevel_side'
 const BEVEL_BOTTOM = 'monitor_bevel_bottom'
-const SIDE = 'monitor_side'
-const TRIM = 'monitor_trim'
-const SCREEN = 'monitor_screen'
-const STAND = 'monitor_stand'
-const BASE_TOP = 'monitor_base_top'
 
-/** Anchors measured on the GLB, in model units: casing centre x, underside of the base, front face of the casing, rear flat panel. */
-const SRC = { centreX: -0.019519, baseY: -0.733481, frontZ: -0.081209, rearZ: 0.190830, panelCentreY: 0.0865 } as const
+/** Anchors measured on the GLB, in model units: casing centre x, underside of the base, front face of the casing, rear flat panel, rear panel's centre height. */
+const SRC = { centreX: 0.0336, baseY: 0.0331, frontZ: 0.2161, rearZ: -0.1210, panelCentreY: 1.373 } as const
 
-const CASING_SCALE = 1.13
-const SCALE = 0.332 * 1.15 * CASING_SCALE   // depth (z) reference
-const WIDE = 1.10                           // try 1.05–1.20
-const SCALE_X = SCALE * WIDE                // width
-const TALL = 1.12
-const SCALE_Y = SCALE * TALL                // height
-
-const LIFT_M = 0.0              // try 0.0 first, then -0.02 to match the reference
-const LIFT = LIFT_M / SCALE_Y   // replaces the old LIFT line
-
-const NECK = {
-  splitY: -1.56,
-  widen: 1.01,
-  deepen: 1.0,
-  centreX: -0.0195,
-  centreZ: 0.04,
-  /** Selects the neck's vertices within the stand group: above the base plate's rim (-0.6645), and inside the neck's footprint. */
-  box: { minY: -0.6645, halfX: 0.21, minZ: -0.03, maxZ: 0.12 },
-} as const
-
-
-const BASE_DEPTH = { oldFrontZ: -0.337, frontZ: -0.12, keep: 0.5 }
-const shrinkBaseZ = (z: number) => BASE_DEPTH.frontZ + (z - BASE_DEPTH.oldFrontZ) * BASE_DEPTH.keep
-
-const EDGE = { wallRearZ: 0.043, wallFrontZ: -0.051, keep: 0.4 }
-const EDGE_SHIFT = (EDGE.wallRearZ - EDGE.wallFrontZ) * (1 - EDGE.keep)
-
-function squeezeZ(z: number): number {
-  if (z >= EDGE.wallRearZ) return z
-  if (z >= EDGE.wallFrontZ) return EDGE.wallRearZ + (z - EDGE.wallRearZ) * EDGE.keep
-  return z + EDGE_SHIFT
-}
-
-type Attr = BufferAttribute | InterleavedBufferAttribute
-
-/** Applies squeezeZ to a casing position attribute and keeps its normals correct (the inverse-transpose of a z scale divides nz by the scale). */
-function squeezeCasing(pos: Attr, nor: Attr | undefined): { pos: Float32BufferAttribute; nor?: Float32BufferAttribute } {
-  const p = new Float32BufferAttribute(pos.count * 3, 3)
-  const n = nor ? new Float32BufferAttribute(nor.count * 3, 3) : undefined
-  for (let i = 0; i < pos.count; i++) {
-    const z = pos.getZ(i)
-    p.setXYZ(i, pos.getX(i), pos.getY(i), squeezeZ(z))
-    if (n && nor) {
-      const inWall = z >= EDGE.wallFrontZ && z < EDGE.wallRearZ
-      const nz = inWall ? nor.getZ(i) / EDGE.keep : nor.getZ(i)
-      const len = Math.hypot(nor.getX(i), nor.getY(i), nz) || 1
-      n.setXYZ(i, nor.getX(i) / len, nor.getY(i) / len, nz / len)
-    }
-  }
-  return { pos: p, nor: n }
-}
+/**
+ * Size: the casing is 0.949 m wide (12% more than the 0.847 m it had), x, y and z scaled together, so the native proportions and the
+ * depth of the rear shell and its bevels are exactly the model's own. The rear panel stands 0.098 m proud of the casing's front face.
+ */
+const SIZE_BOOST = 1.12
+const SCALE = (0.847 / 3.1182) * SIZE_BOOST
+const DEPTH = 1
+const SCALE_Z = SCALE * DEPTH
+/** Where the PROJECTS lettering is centred on the rear, as a fraction of the casing height measured down from its top edge (the reference sits about a third down). */
+const LABEL_FROM_TOP = 0.32
+const CASING_TOP_Y = 2.3196
+const CASING_HEIGHT = 1.894
 
 export const MONITOR_MODEL = {
-  scale: [SCALE_X, SCALE_Y, SCALE] as [number, number, number],
-  offset: [-SRC.centreX * SCALE_X, -SRC.baseY * SCALE_Y, -SRC.frontZ * SCALE] as [number, number, number],
-  /** Wrapper-space z of the rear flat panel, and the height of its visual centre (where the label sits). */
-  rearPanelZ: (SRC.rearZ - SRC.frontZ) * SCALE,
-  rearPanelCentreY: (SRC.panelCentreY - SRC.baseY) * SCALE_Y + LIFT_M,
-  /** Metres the casing is raised above the one-piece model. */
-  lift: LIFT_M,
+  scale: [SCALE, SCALE, SCALE_Z] as [number, number, number],
+  /** Applied before the half turn: puts the casing's centre x on the origin, the underside of the base on y = 0 (the desk) and the casing's front face on z = 0. */
+  offset: [-SRC.centreX * SCALE, -SRC.baseY * SCALE, -SRC.frontZ * SCALE_Z] as [number, number, number],
+  /** The model's screen faces +z; the scene's faces -z (towards the robot). */
+  yaw: Math.PI,
+  /** Wrapper-space z of the rear flat panel, and the height of its visual centre. */
+  rearPanelZ: (SRC.frontZ - SRC.rearZ) * SCALE_Z,
+  rearPanelCentreY: (SRC.panelCentreY - SRC.baseY) * SCALE,
+  /** Wrapper-space height at which the PROJECTS lettering is centred: in the upper-middle of the flat rear panel. */
+  labelCentreY: (CASING_TOP_Y - LABEL_FROM_TOP * CASING_HEIGHT - SRC.baseY) * SCALE,
+  /** Wrapper-space size of the flat rear panel (x -1.06 … 1.127, y 0.709 … 2.037 in the model). */
+  rearPanelWidth: (1.127 + 1.06) * SCALE,
+  rearPanelHeight: (2.037 - 0.709) * SCALE,
 }
 
-/** Restrained PBR finishes: satin plastic, lightly coated navy, near-black glass. No sheen on the casing, so it never washes out to white. */
-const SATIN = { roughness: 0.52, metalness: 0, clearcoat: 0.06, clearcoatRoughness: 0.55 } as const
+/**
+ * Restrained PBR finishes. The casing is a refined satin (no metalness, a whisper of clearcoat so edges catch a fine highlight and
+ * the bevel stays readable); the glass is darker and glossier than the casing; the stand is a slightly lifted satin metal for contrast.
+ */
+const SATIN = { roughness: 0.42, metalness: 0.15, clearcoat: 0.25, clearcoatRoughness: 0.35, envMapIntensity: 3 } as const
 const FINISH: Record<string, MeshPhysicalMaterialParameters> = {
-  [PANEL]: { color: colors.monitorRear, ...SATIN },
-  [BEVEL_TOP]: { color: colors.monitorBevelTop, ...SATIN },
-  [BEVEL_SIDE]: { color: colors.monitorBevelSide, ...SATIN },
-  [BEVEL_BOTTOM]: { color: colors.monitorBevelBottom, ...SATIN },
-  // The wall and its shoulder: same colour as before, a touch more polish so the shoulder catches a fine highlight line and the edge reads as finished.
-  [SIDE]: { color: colors.monitorSide, ...SATIN, roughness: 0.46, clearcoat: 0.22, clearcoatRoughness: 0.35 },
-  [TRIM]: { color: colors.monitorTrim, roughness: 0.38, metalness: 0.18, clearcoat: 0.25, clearcoatRoughness: 0.35 },
-  [SCREEN]: { color: colors.monitorScreen, roughness: 0.12, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.1 },
-  [STAND]: { color: colors.monitorStand, roughness: 0.45, metalness: 0.2, clearcoat: 0.15, clearcoatRoughness: 0.45 },
-  [BASE_TOP]: { color: colors.monitorBaseTop, roughness: 0.5, metalness: 0.05, clearcoat: 0.04, clearcoatRoughness: 0.55 },
+  [CASING]: { color: colors.monitorCasing, ...SATIN },
+  // The rear shell's facets: the flat panel, then the four bevels in close tones. The top bevel faces the ceiling light so it is the deepest;
+  // the bottom one catches bounce from the desk so it is the lightest. A touch more polish on the bevels lets their edges pick up a fine highlight.
+  [PANEL]: { color: colors.monitorCasing, ...SATIN },
+  [BEVEL_TOP]: { color: colors.monitorBevelTop, ...SATIN, roughness: 0.34, envMapIntensity: 4.5 },
+  [BEVEL_SIDE]: { color: colors.monitorBevelSide, ...SATIN, roughness: 0.34, envMapIntensity: 4.5 },
+  [BEVEL_BOTTOM]: { color: colors.monitorBevelBottom, ...SATIN, roughness: 0.34, envMapIntensity: 4.5 },
+  [SCREEN]: { color: colors.monitorScreen, roughness: 0.14, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.1 },
+  [MOUNT]: { color: colors.monitorMount, roughness: 0.38, metalness: 0.35, envMapIntensity: 3, clearcoat: 0.08, clearcoatRoughness: 0.45 },
+  [STAND]: { color: colors.monitorStand, roughness: 0.38, metalness: 0.3, envMapIntensity: 3, clearcoat: 0.12, clearcoatRoughness: 0.4 },
 }
 
-function shrinkBase(source: BufferGeometry): BufferGeometry {
-  const g = source.clone()
-  const pos = g.getAttribute('position')
-  for (let i = 0; i < pos.count; i++) pos.setZ(i, shrinkBaseZ(pos.getZ(i)))
-  pos.needsUpdate = true
-  g.computeBoundingBox(); g.computeBoundingSphere()
-  return g
-}
+/** Material-group order for the casing: wall and front bezel first (the file's own material), then the rear panel and the bevels. */
+const CASING_GROUPS = [CASING, PANEL, BEVEL_TOP, BEVEL_SIDE, BEVEL_BOTTOM] as const
 
-/** Reshapes a clone of the stand's geometry as described at NECK. Positions and normals only; the triangles are unchanged. */
-function reshapeStand(source: BufferGeometry): BufferGeometry {
-  const g = source.clone()
-  const pos = g.getAttribute('position')
-  const nor = g.getAttribute('normal')
-  const { box, widen, deepen, centreX, centreZ, splitY } = NECK
-  for (let i = 0; i < pos.count; i++) {
-    let x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i)
-    const inNeck = y > box.minY && Math.abs(x - centreX) < box.halfX && z > box.minZ && z < box.maxZ
-    if (inNeck) {
-      x = centreX + (x - centreX) * widen
-      z = centreZ + (z - centreZ) * deepen
-      if (nor) {
-        const nx = nor.getX(i) / widen, nz = nor.getZ(i) / deepen, ny = nor.getY(i)
-        const len = Math.hypot(nx, ny, nz) || 1
-        nor.setXYZ(i, nx / len, ny / len, nz / len)
-      }
-    } else {
-      z = shrinkBaseZ(z) // base plate sides: depth remapped, see BASE_DEPTH
+/**
+ * Regroups a casing geometry's triangles by the direction they face (judged in the model's real proportions, after the node's
+ * non-uniform scale). The vertex attributes are shared with the source, not copied or edited; only the index order changes.
+ */
+function groupCasing(source: BufferGeometry, scale: Vector3): BufferGeometry {
+  const index = source.index
+  const pos = source.getAttribute('position')
+  if (!index) return source
+  const buckets: number[][] = CASING_GROUPS.map(() => [])
+  const a = new Vector3(), b = new Vector3(), c = new Vector3(), n = new Vector3()
+  for (let i = 0; i < index.count; i += 3) {
+    const ia = index.getX(i), ib = index.getX(i + 1), ic = index.getX(i + 2)
+    a.fromBufferAttribute(pos, ia).multiply(scale)
+    b.fromBufferAttribute(pos, ib).multiply(scale)
+    c.fromBufferAttribute(pos, ic).multiply(scale)
+    n.crossVectors(b.sub(a), c.sub(a)).normalize()
+    let g = 0 // wall and front bezel
+    if (n.z < -0.5) {
+      if (n.z < -0.99) g = 1
+      else if (n.y > 0.3) g = 2
+      else if (n.y < -0.3) g = 4
+      else if (Math.abs(n.x) > 0.3) g = 3
     }
-    if (y > splitY && inNeck) y += LIFT
-    pos.setXYZ(i, x, y, z)
+    buckets[g].push(ia, ib, ic)
   }
-  pos.needsUpdate = true
-  if (nor) nor.needsUpdate = true
-  g.computeBoundingBox()
-  g.computeBoundingSphere()
-  return g
+  const out = new BufferGeometry()
+  for (const name of Object.keys(source.attributes)) out.setAttribute(name, source.getAttribute(name))
+  out.setIndex(new BufferAttribute(new Uint16Array(buckets.flat()), 1))
+  let start = 0
+  buckets.forEach((list, m) => { if (list.length) out.addGroup(start, list.length, m); start += list.length })
+  out.boundingBox = source.boundingBox; out.boundingSphere = source.boundingSphere
+  return out
 }
 
-/** A copy of a casing primitive's geometry with the wall shortened as described at EDGE; the triangles and the index are unchanged. */
-function squeezeCasingGeometry(source: BufferGeometry, cache: Map<Attr, { pos: Float32BufferAttribute; nor?: Float32BufferAttribute }>): BufferGeometry {
-  const srcPos = source.getAttribute('position') as Attr
-  const srcNor = source.getAttribute('normal') as Attr | undefined
-  let out = cache.get(srcPos)
-  if (!out) { out = squeezeCasing(srcPos, srcNor); cache.set(srcPos, out) }
-  const g = new BufferGeometry()
-  g.setAttribute('position', out.pos)
-  if (out.nor) g.setAttribute('normal', out.nor)
-  g.setIndex(source.index)
-  g.computeBoundingBox(); g.computeBoundingSphere()
-  return g
-}
-
+/**
+ * A clone of the loaded scene with the portfolio's materials on the existing meshes. The casing's triangles are regrouped into facets
+ * (see groupCasing); no vertex data is modified. Returns the materials and the regrouped geometries so the caller can dispose them.
+ */
 export function prepareMonitor(root: Object3D): { model: Object3D; materials: MeshPhysicalMaterial[]; geometries: BufferGeometry[] } {
   const materials = new Map<string, MeshPhysicalMaterial>()
   const geometries: BufferGeometry[] = []
-  // All casing primitives share one vertex buffer in the file, so each is remapped once and the result shared.
-  const squeezed = new Map<Attr, { pos: Float32BufferAttribute; nor?: Float32BufferAttribute }>()
+  const make = (name: string) => {
+    let mat = materials.get(name)
+    if (!mat) { mat = new MeshPhysicalMaterial({ ...FINISH[name], name }); materials.set(name, mat) }
+    return mat
+  }
   const model = root.clone(true)
+  model.updateMatrixWorld(true)
+  const scale = new Vector3()
   model.traverse((o) => {
     const mesh = o as Mesh
     if (!mesh.isMesh) return
     const name = (mesh.material as Material).name
-    const finish = FINISH[name]
-    if (finish) {
-      let mat = materials.get(name)
-      if (!mat) { mat = new MeshPhysicalMaterial({ ...finish, name }); materials.set(name, mat) }
-      mesh.material = mat
-    }
-    if (name === STAND) {
-      mesh.geometry = reshapeStand(mesh.geometry); geometries.push(mesh.geometry)
-    } else if (name === BASE_TOP) {
-      mesh.geometry = shrinkBase(mesh.geometry); geometries.push(mesh.geometry)
-    } else {
-      mesh.geometry = squeezeCasingGeometry(mesh.geometry, squeezed); geometries.push(mesh.geometry)
-      mesh.position.y += LIFT
+    if (name === CASING) {
+      mesh.matrixWorld.decompose(new Vector3(), new Quaternion(), scale)
+      const g = groupCasing(mesh.geometry, scale.clone())
+      if (g !== mesh.geometry) { geometries.push(g); mesh.geometry = g }
+      mesh.material = mesh.geometry.groups.length ? mesh.geometry.groups.map((grp) => make(CASING_GROUPS[grp.materialIndex ?? 0])) : make(CASING)
+    } else if (FINISH[name]) {
+      // The emissive wallpaper on the glass is replaced, not tinted: the screen is a plain near-black surface.
+      mesh.material = make(name)
     }
     mesh.castShadow = name !== SCREEN
     mesh.receiveShadow = true

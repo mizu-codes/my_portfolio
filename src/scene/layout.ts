@@ -63,29 +63,29 @@ export const KEYBOARD_MODEL = {
 } as const
 
 /**
- * Monitor — public/models/white_mesh.glb (see monitorModel.ts and Monitor.tsx). The real screen faces -z (toward the robot); the sloping
- * rear casing and flat centre panel face +z (toward the visitor).
+ * Monitor — public/models/monitor.glb (see monitorModel.ts and Monitor.tsx). The real screen faces -z (toward the robot); the rear shell
+ * and its flat centre panel face +z (toward the visitor).
  * Positioned at the SAME world X as the robot so they are physically aligned.
  * yaw: 0 means the screen faces straight toward -z, i.e., directly at the robot.
- * The GLB is used as supplied; Monitor.tsx scales and offsets it (MONITOR_MODEL) so its origin is on the desk under the casing centre.
- * Casing 0.847 x 0.512 m (aspect ~1.65, 13% larger than before), clearance 0.195 m, casing centre 0.451 m above the desk.
+ * The GLB is used as supplied; Monitor.tsx turns, scales and offsets it (MONITOR_MODEL) so its origin is on the desk under the casing centre.
+ * Casing 0.847 x 0.515 m (aspect ~1.65), clearance 0.107 m, casing centre 0.364 m above the desk.
  */
 /** Sideways shift of the monitor from the robot's centre line (m, negative = the visitor's left of the robot, as seen from the default camera). 0 puts it exactly in line with the robot. */
 export const MONITOR_OFFSET_X = 0
 
 export const MONITOR = {
-  position: [DESK_X + MONITOR_OFFSET_X, DESK_TOP, DESK_Z + 0.35] as Vec3,
+  position: [DESK_X + MONITOR_OFFSET_X, DESK_TOP, DESK_Z + 0.45] as Vec3,
   yaw: 0,
   /** Monitor-space z of the casing's front (screen-side) face. 0 = screen flush with GLB z-origin (screen faces -z, toward robot). */
   frontZ: 0.000,
   /**
-   * Measured on public/models/white_mesh.glb after MONITOR_MODEL scaling (metres, monitor space):
-   * casing 0.847 x 0.512 m (aspect ~1.65), clearance 0.195 m above desk (the casing is raised on a longer neck, see monitorModel.ts),
-   * sloping rear (rim rear at z=0.060, flat panel at z=0.117).
+   * Measured on public/models/monitor.glb after MONITOR_MODEL scaling (metres, monitor space):
+   * casing 0.847 x 0.515 m (aspect ~1.65), clearance 0.107 m above the desk (the model's own stand),
+   * flat rear panel 0.594 x 0.361 m at z=0.092 (rimZ is the shoulder where the rear shell steps back from the bezel, z=0.029).
    */
-  casing: { width: 0.847, height: 0.512, clearance: 0.195, rimZ: 0.060, panelZ: 0.117 },
+  casing: { width: 0.847, height: 0.515, clearance: 0.107, rimZ: 0.029, panelZ: 0.092 },
   /** Anchor for the OPEN PROJECTS pill (monitor space, x = visitor's right). Pill is no longer monitor-tracked. */
-  hotspot: [0.25, 0.451, 0.117] as Vec3,
+  hotspot: [0.25, 0.364, 0.092] as Vec3,
 } as const
 
 const monitorPanelCentreY = MONITOR.position[1] + MONITOR.casing.clearance + MONITOR.casing.height / 2

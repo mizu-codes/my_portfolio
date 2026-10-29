@@ -40,23 +40,21 @@ export const colors = {
   magenta: '#d84fcb',
   amber: '#ffb15c',
   ledAmber: '#b36f26',
-  // Monitor (white_mesh.glb, see scene/monitorModel.ts)
-  /** Rear casing: flat centre panel, muted grey-lilac. */
-  monitorRear: '#cfc0d8',
-  /** The four sloping bevels: close tones of the panel, so the facets stay readable. The top one faces the ceiling light, so it is the deepest. */
-  monitorBevelTop: '#c6b7d1',
-  monitorBevelSide: '#c9bad3',
-  monitorBevelBottom: '#d3c5db',
-  /** Side wall of the casing (between the bevels and the front trim): a touch deeper lavender-grey. */
-  monitorSide: '#beb0c9',
-  /** Narrow trim round the front edge and the frame around the screen: deep navy. */
-  monitorTrim: '#181b38',
-  /** Neck and the sides of the base: dark navy, a touch lighter than the trim. */
-  monitorStand: '#1b1e3a',
-  /** Top face of the base plate: muted lavender. */
-  monitorBaseTop: '#9a8ead',
+  // Monitor (monitor.glb, see scene/monitorModel.ts)
+  /** Casing (bezel, side wall, rear shell and flat rear panel): deep charcoal navy. */
+  monitorCasing: '#252c47',
+  /** The rear shell's four sloping bevels: close navy tones of the casing so the facets stay readable. The top one faces the ceiling light, so it is the deepest; the bottom the lightest. */
+  monitorBevelTop: '#323a5c',
+  monitorBevelSide: '#2b3352',
+  monitorBevelBottom: '#1d233b',
+  /** Mount plate between the neck and the casing: a step lighter than the casing, so the joint reads. */
+  monitorMount: '#363e60',
+  /** Neck and base plate: deep navy, a touch lighter than the casing. */
+  monitorStand: '#2a3150',
   /** Front glass: near-black. */
   monitorScreen: '#03040a',
+  /** Reserved for a future accent on the monitor (the model has no accent surface yet); not applied to the mesh. */
+  monitorAccentCyan: '#72e7ff',
   /** Printed PROJECTS lettering on the rear casing. */
   monitorLabel: '#ff80b5',
   // Light colours
