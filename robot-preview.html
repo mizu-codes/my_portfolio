@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Robot Body Preview</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; overflow: hidden; }
+  canvas { display: block; }
+  #info {
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.6); color: #fff; padding: 8px 18px;
+    border-radius: 20px; font: 13px/1.5 sans-serif; text-align: center;
+  }
+  #views {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 10px;
+  }
+  button {
+    background: rgba(0,180,220,0.85); color: #000; border: none;
+    padding: 8px 20px; border-radius: 16px; font: 13px sans-serif;
+    cursor: pointer; font-weight: 600;
+  }
+  button:hover { background: #0cf; }
+</style>
+</head>
+<body>
+<div id="info">Robot Preview — drag to orbit · scroll to zoom</div>
+<div id="views">
+  <button onclick="setView('front')">Front</button>
+  <button onclick="setView('side')">Side</button>
+  <button onclick="setView('three-quarter')">3/4 View</button>
+  <button onclick="setView('back')">Back</button>
+  <button onclick="setView('top')">Top-Down</button>
+</div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js'
+import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/controls/OrbitControls.js'
+
+const scene = new THREE.Scene()
+scene.background = new THREE.Color(0x1a1a2e)
+scene.fog = new THREE.Fog(0x1a1a2e, 6, 14)
+
+const W = window.innerWidth, H = window.innerHeight
+const camera = new THREE.PerspectiveCamera(45, W / H, 0.01, 30)
+camera.position.set(1.6, 1.4, 2.6)
+
+const renderer = new THREE.WebGLRenderer({ antialias: true })
+renderer.setPixelRatio(devicePixelRatio)
+renderer.setSize(W, H)
+renderer.shadowMap.enabled = true
+renderer.shadowMap.type = THREE.PCFSoftShadowMap
+renderer.toneMapping = THREE.ACESFilmicToneMapping
+renderer.toneMappingExposure = 1.2
+document.body.prepend(renderer.domElement)
+
+const controls = new OrbitControls(camera, renderer.domElement)
+controls.target.set(0, 0.85, 0)
+controls.enableDamping = true
+controls.dampingFactor = 0.08
+controls.update()
+
+// ── LIGHTING ─────────────────────────────────────────────────────────────────
+const ambient = new THREE.AmbientLight(0xffffff, 0.6)
+scene.add(ambient)
+
+const key = new THREE.DirectionalLight(0xfff8ee, 2.4)
+key.position.set(2, 4, 3)
+key.castShadow = true
+key.shadow.mapSize.set(2048, 2048)
+key.shadow.camera.near = 0.5; key.shadow.camera.far = 20
+key.shadow.camera.left = -2; key.shadow.camera.right = 2
+key.shadow.camera.top = 3; key.shadow.camera.bottom = -1
+scene.add(key)
+
+const fill = new THREE.DirectionalLight(0xaad4ff, 0.8)
+fill.position.set(-2, 2, -1)
+scene.add(fill)
+
+const rim = new THREE.DirectionalLight(0xffffff, 0.5)
+rim.position.set(0, 3, -3)
+scene.add(rim)
+
+// ── FLOOR ────────────────────────────────────────────────────────────────────
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(8, 8),
+  new THREE.MeshStandardMaterial({ color: 0x222232, roughness: 0.9 })
+)
+floor.rotation.x = -Math.PI / 2
+floor.receiveShadow = true
+scene.add(floor)
+
+// ── GRID ─────────────────────────────────────────────────────────────────────
+const grid = new THREE.GridHelper(6, 20, 0x334455, 0x334455)
+grid.position.y = 0.001
+scene.add(grid)
+
+// ── MATERIALS ────────────────────────────────────────────────────────────────
+const SHELL_MAT = new THREE.MeshStandardMaterial({ color: 0xf0f0f4, roughness: 0.32, metalness: 0.08 })
+const PANEL_MAT = new THREE.MeshStandardMaterial({ color: 0xe0e2ea, roughness: 0.36, metalness: 0.1 })
+const JOINT_MAT = new THREE.MeshStandardMaterial({ color: 0x303040, roughness: 0.5, metalness: 0.35 })
+const METAL_MAT = new THREE.MeshStandardMaterial({ color: 0x8899aa, roughness: 0.3, metalness: 0.75 })
+const CYAN_MAT  = new THREE.MeshBasicMaterial({ color: 0x00e8ff, toneMapped: false })
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+function box(w, h, d, mat, px=0, py=0, pz=0, rx=0, ry=0, rz=0) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat)
+  m.position.set(px, py, pz)
+  m.rotation.set(rx, ry, rz)
+  m.castShadow = m.receiveShadow = true
+  return m
+}
+function cyl(rt, rb, h, segs, mat, px=0, py=0, pz=0, rx=0, ry=0, rz=0) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, segs), mat)
+  m.position.set(px, py, pz)
+  m.rotation.set(rx, ry, rz)
+  m.castShadow = true
+  return m
+}
+function sph(r, mat, px=0, py=0, pz=0) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 18), mat)
+  m.position.set(px, py, pz)
+  m.castShadow = true
+  return m
+}
+function tor(r, t, mat, px=0, py=0, pz=0, rx=0, ry=0, rz=0) {
+  const m = new THREE.Mesh(new THREE.TorusGeometry(r, t, 10, 48), mat)
+  m.position.set(px, py, pz)
+  m.rotation.set(rx, ry, rz)
+  return m
+}
+function discJoint(radius, thickness, g, px=0, py=0, pz=0, rx=0, ry=0, rz=0) {
+  const dg = new THREE.Group()
+  dg.add(cyl(radius, radius, thickness, 36, JOINT_MAT))
+  dg.add(cyl(radius*0.72, radius*0.72, 0.004, 32, SHELL_MAT, 0, thickness*0.5+0.001))
+  dg.add(cyl(radius*0.72, radius*0.72, 0.004, 32, SHELL_MAT, 0, -(thickness*0.5+0.001)))
+  dg.add(cyl(radius*0.26, radius*0.26, thickness+0.006, 20, METAL_MAT))
+  dg.add(tor(radius*0.52, 0.0022, CYAN_MAT, 0, thickness*0.5+0.003, 0, Math.PI/2))
+  dg.position.set(px, py, pz)
+  dg.rotation.set(rx, ry, rz)
+  g.add(dg)
+  return dg
+}
+function addTo(parent, child) { parent.add(child); return child }
+
+// ── ROBOT GROUP ──────────────────────────────────────────────────────────────
+const robot = new THREE.Group()
+scene.add(robot)
+
+// ── HEAD (white box + cyan eyes placeholder) ─────────────────────────────────
+const head = new THREE.Group()
+head.position.set(0, 1.300, 0)
+robot.add(head)
+
+// Head casing
+head.add(new THREE.Mesh(
+  new THREE.BoxGeometry(0.36, 0.32, 0.235),
+  new THREE.MeshStandardMaterial({ color: 0xf0f0f4, roughness: 0.28, metalness: 0.1 })
+))
+// Black bezel
+head.add(box(0.290, 0.232, 0.010, new THREE.MeshStandardMaterial({ color: 0x111118, roughness: 0.26 }),
+  0, -0.008, 0.235/2 + 0.012))
+
+// Cyan eyes
+for (const sx of [-0.067, 0.067]) {
+  head.add(new THREE.Mesh(
+    new THREE.BoxGeometry(0.053, 0.066, 0.006),
+    CYAN_MAT
+  ).translateX(sx).translateY(0.030).translateZ(0.235/2 + 0.016))
+}
+// Antennae
+for (const sx of [-1, 1]) {
+  const ant = new THREE.Group()
+  ant.position.set(sx * 0.072, 0.160, -0.030)
+  head.add(ant)
+  ant.add(cyl(0.0028, 0.0028, 0.158, 8, new THREE.MeshStandardMaterial({ color: 0x111118, roughness: 0.26 }),
+    0, 0.079, 0, 0, 0, 0))
+  ant.add(sph(0.012, CYAN_MAT, 0, 0.160, 0))
+}
+// Side ear modules
+for (const sx of [-1, 1]) {
+  const ear = new THREE.Group()
+  ear.position.set(sx * 0.180, 0, 0)
+  ear.rotation.y = sx * Math.PI / 2
+  head.add(ear)
+  ear.add(cyl(0.055, 0.055*0.95, 0.032, 48, new THREE.MeshStandardMaterial({ color: 0xf0f0f4, roughness: 0.28 }),
+    0, 0, 0.016, Math.PI/2))
+  ear.add(tor(0.036, 0.0035, CYAN_MAT, 0, 0, 0.034, Math.PI/2))
+}
+// Neck collar
+head.add(cyl(0.055, 0.060, 0.024, 32, JOINT_MAT, 0, -0.160-0.012))
+
+// ── TORSO ────────────────────────────────────────────────────────────────────
+const chestW = 0.185, chestD = 0.100
+const chestBot = 0.752, chestTop = 1.090
+const chestH = chestTop - chestBot
+const chestMidY = (chestBot + chestTop) * 0.5
+
+const torso = new THREE.Group()
+robot.add(torso)
+
+// Pelvis
+torso.add(box(0.200, 0.130, 0.130, SHELL_MAT, 0, 0.585, -0.010))
+torso.add(box(0.040, 0.094, 0.090, PANEL_MAT, -0.118, 0.585, -0.010))
+torso.add(box(0.040, 0.094, 0.090, PANEL_MAT,  0.118, 0.585, -0.010))
+torso.add(box(0.168, 0.006, 0.006, SHELL_MAT, 0, 0.650, -0.010))
+torso.children[torso.children.length-1].material = CYAN_MAT
+
+// Waist spine
+torso.add(box(0.058, 0.122, 0.058, JOINT_MAT, 0, 0.711, -0.010))
+for (const dy of [-0.038, -0.013, 0.013, 0.038]) {
+  torso.add(tor(0.040, 0.006, dy < 0 ? PANEL_MAT : SHELL_MAT, 0, 0.711+dy, -0.010, Math.PI/2))
+}
+torso.add(tor(0.042, 0.0028, CYAN_MAT, 0, 0.711, -0.010, Math.PI/2))
+
+// Chest main box
+torso.add(box(chestW*2, chestH, chestD*2, SHELL_MAT, 0, chestMidY, -0.010))
+// Front panel
+torso.add(box(chestW*2-0.028, chestH*0.72, 0.016, PANEL_MAT, 0, chestMidY+0.012, chestD-0.010+0.009))
+// Upper chest plate
+torso.add(box(chestW*2-0.016, chestH*0.28, 0.018, SHELL_MAT, 0, chestTop-chestH*0.14, chestD-0.010+0.010))
+// CYAN status strip
+torso.add(box(0.082, 0.022, 0.003, CYAN_MAT, 0, chestMidY+0.040, chestD-0.010+0.020))
+// Pec plates
+torso.add(box(0.078, chestH*0.42, 0.018, SHELL_MAT, -0.080, chestMidY+0.022, chestD-0.010+0.010))
+torso.add(box(0.078, chestH*0.42, 0.018, SHELL_MAT,  0.080, chestMidY+0.022, chestD-0.010+0.010))
+// Pec groove
+torso.add(box(0.014, chestH*0.38, 0.010, JOINT_MAT, 0, chestMidY+0.018, chestD-0.010+0.014))
+// Back spine
+torso.add(box(0.048, chestH*0.80, 0.016, JOINT_MAT, 0, chestMidY, -(chestD-0.010)-0.009))
+// Back scapulars
+torso.add(box(0.072, chestH*0.46, 0.014, PANEL_MAT, -0.078, chestMidY+0.030, -(chestD-0.010)-0.008))
+torso.add(box(0.072, chestH*0.46, 0.014, PANEL_MAT,  0.078, chestMidY+0.030, -(chestD-0.010)-0.008))
+
+// Neck collar
+torso.add(cyl(0.045, 0.045, chestTop-1.032, 24, JOINT_MAT, 0, (1.032+chestTop)*0.5))
+torso.add(tor(0.055, 0.012, SHELL_MAT, 0, chestTop+0.003, 0, Math.PI/2))
+torso.add(tor(0.056, 0.0024, CYAN_MAT, 0, chestTop+0.014, 0, Math.PI/2))
+
+// Shoulder struts + ball joints
+for (const s of [-1, 1]) {
+  torso.add(box(0.110, 0.022, 0.058, SHELL_MAT, s*0.148, chestTop-0.025, -0.030, 0, 0, -s*0.18))
+  torso.add(box(0.058, 0.040, 0.044, JOINT_MAT, s*0.188, chestTop-0.056, -0.028))
+
+  const shG = new THREE.Group()
+  shG.position.set(s*0.218, 1.010, -0.052)
+  torso.add(shG)
+  shG.add(sph(0.044, JOINT_MAT))
+  shG.add(cyl(0.038, 0.038, 0.020, 24, JOINT_MAT, -s*0.028, 0, 0, 0, 0, Math.PI/2))
+  shG.add(sph(0.052, SHELL_MAT, s*0.014, 0, 0))
+  shG.add(cyl(0.040, 0.040, 0.004, 32, JOINT_MAT, s*0.050, 0, 0, 0, Math.PI/2))
+  shG.add(cyl(0.016, 0.016, 0.004, 20, METAL_MAT, s*0.052, 0, 0, 0, Math.PI/2))
+  shG.add(tor(0.030, 0.0028, CYAN_MAT, s*0.054, 0, 0, 0, Math.PI/2))
+}
+
+// ── ARMS ─────────────────────────────────────────────────────────────────────
+// Simplified straight arms for preview (not IK-solved, but good proportional reference)
+for (const s of [-1, 1]) {
+  const armG = new THREE.Group()
+  robot.add(armG)
+
+  // Shoulder start
+  const sx = s * 0.218, sy = 1.010, sz = -0.052
+  // Elbow pos (approximated seated pose)
+  const ex = s * 0.350, ey = 0.900, ez = 0.100
+  // Wrist pos
+  const wx = s * 0.162, wy = 0.822, wz = 0.348
+
+  // Upper arm box
+  const uaDir = new THREE.Vector3(ex-sx, ey-sy, ez-sz)
+  const uaLen = uaDir.length()
+  const uaQ = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), uaDir.normalize())
+  const uaBox = box(0.104, uaLen*0.72, 0.088, SHELL_MAT)
+  uaBox.position.set((sx+ex)*0.5, (sy+ey)*0.5, (sz+ez)*0.5)
+  uaBox.quaternion.copy(uaQ)
+  armG.add(uaBox)
+
+  // Elbow disc joint
+  const elbG = new THREE.Group()
+  elbG.position.set(ex, ey, ez)
+  armG.add(elbG)
+  discJoint(0.046, 0.072, elbG)
+
+  // Forearm box
+  const faDir = new THREE.Vector3(wx-ex, wy-ey, wz-ez)
+  const faLen = faDir.length()
+  const faQ = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), faDir.normalize())
+  const faBox = box(0.088, faLen*0.72, 0.076, SHELL_MAT)
+  faBox.position.set((ex+wx)*0.5, (ey+wy)*0.5, (ez+wz)*0.5)
+  faBox.quaternion.copy(faQ)
+  armG.add(faBox)
+
+  // Simple hand box
+  armG.add(box(0.072, 0.022, 0.075, SHELL_MAT, wx, wy, wz))
+  // Fingers (3 simple boxes)
+  for (let fi = 0; fi < 4; fi++) {
+    const fx = wx + s*(fi-1.5)*0.016
+    armG.add(box(0.013, 0.012, 0.055, SHELL_MAT, fx, wy, wz+0.062))
+  }
+}
+
+// ── LEGS ─────────────────────────────────────────────────────────────────────
+for (const s of [-1, 1]) {
+  const legG = new THREE.Group()
+  robot.add(legG)
+  const lx = s * 0.130
+
+  // Hip joint
+  legG.add(sph(0.078, JOINT_MAT, lx, 0.60, 0.068))
+  legG.add(tor(0.070, 0.0068, METAL_MAT, lx, 0.60, 0.068, Math.PI/2))
+
+  // Thigh box
+  const tDir = new THREE.Vector3(lx-lx, 0.580-0.60, 0.400-0)
+  const tLen = tDir.length()
+  const tQ = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), tDir.normalize())
+  const thighB = box(0.242, tLen-0.120, 0.148, SHELL_MAT)
+  thighB.position.set(lx, (0.60+0.580)*0.5, (0+0.400)*0.5)
+  thighB.quaternion.copy(tQ)
+  legG.add(thighB)
+
+  // Knee disc joint
+  const kneeG = new THREE.Group()
+  kneeG.position.set(lx, 0.580, 0.400)
+  legG.add(kneeG)
+  discJoint(0.075, 0.130, kneeG, 0, 0, 0, 0, 0, Math.PI/2)
+
+  // Kneecap
+  legG.add(box(0.090, 0.075, 0.038, SHELL_MAT, lx, 0.580, 0.400 + 0.075 + 0.014))
+
+  // Shin box
+  const sDir = new THREE.Vector3(0, 0.090-0.580, 0.400-0.400)
+  const sLen = sDir.length()
+  const sQ = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), sDir.normalize())
+  const shinB = box(0.120, sLen-0.14, 0.098, SHELL_MAT)
+  shinB.position.set(lx, (0.580+0.090)*0.5, 0.400)
+  shinB.quaternion.copy(sQ)
+  legG.add(shinB)
+
+  // Ankle joint
+  legG.add(sph(0.044, JOINT_MAT, lx, 0.090, 0.400))
+
+  // Foot
+  legG.add(box(0.138, 0.026, 0.296, JOINT_MAT, lx, 0.013, 0.458))
+  legG.add(box(0.126, 0.080, 0.122, SHELL_MAT, lx, 0.055, 0.372))
+  legG.add(box(0.130, 0.060, 0.106, SHELL_MAT, lx, 0.051, 0.526))
+}
+
+// ── ANIMATE ──────────────────────────────────────────────────────────────────
+function animate() {
+  requestAnimationFrame(animate)
+  controls.update()
+  renderer.render(scene, camera)
+}
+animate()
+
+// ── VIEW BUTTONS ─────────────────────────────────────────────────────────────
+window.setView = (v) => {
+  const t = controls.target
+  switch (v) {
+    case 'front':
+      camera.position.set(0, 0.95, 2.8); t.set(0, 0.85, 0); break
+    case 'side':
+      camera.position.set(2.8, 0.95, 0.1); t.set(0, 0.85, 0); break
+    case 'three-quarter':
+      camera.position.set(1.6, 1.4, 2.6); t.set(0, 0.85, 0); break
+    case 'back':
+      camera.position.set(0, 0.95, -2.8); t.set(0, 0.85, 0); break
+    case 'top':
+      camera.position.set(0, 3.5, 0.5); t.set(0, 0.85, 0); break
+  }
+  controls.update()
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight
+  camera.updateProjectionMatrix()
+  renderer.setSize(innerWidth, innerHeight)
+})
+</script>
+</body>
+</html>

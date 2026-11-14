@@ -1,4 +1,5 @@
 import type { Vec3 } from './parts'
+import { lampPlane } from './lampModel'
 
 /** World units are metres. Camera looks from +z toward the window on the back wall (-z). */
 export const ROOM = { halfWidth: 3.6, height: 3.4, backZ: -3.2, frontZ: 5.5 } as const
@@ -121,41 +122,88 @@ export const ROBOT_HEAD_YAW = Math.atan2(headDx, headDz)
  */
 
 export const ROBOT_BODY = {
-  hipY: 0.6,
-  hipX: 0.1,
-  pelvis: { width: 0.33, height: 0.13, depth: 0.25, radius: 0.055, y: 0.6 },
-  waistY: 0.69,
-  /** Chest spans y 0.675 to 1.035. Slightly bigger than Stage 7 so the torso feels more substantial next to the head. The neck seat ring sits on its top. */
-  chest: { width: 0.30, height: 0.36, depth: 0.27, radius: 0.065, y: 0.855 },
-  /** Short neck. */
-  neck: { radius: 0.04, bottomY: 0.98, topY: 1.09, ringYs: [1.026, 1.046] as number[] },
-  /** The shoulder caps sit directly against the chest sides (chest half-width 0.15, cap half-width 0.056) now that the shoulder yoke plate is gone. */
-  shoulder: { x: 0.20, y: 0.945, z: 0, capRadius: 0.062 },
-  upperArm: 0.26,
-  foreArm: 0.26,
-  armRadius: 0.038,
-  /** Hands are drawn larger than the arm they sit on, so the typing reads from the default camera. Scales the hand only. */
-  handScale: 1.45,
-  /** How much of the forearm's sideways angle the hand follows (0 = hands point straight ahead, 1 = in line with the forearm). Kept low so the hands sit nearly straight on the keys and the fingertips never point at each other, even though the forearms angle in. */
-  handYawFactor: 0.25,
-  /** Wrist target relative to the robot origin, per side (x is mirrored). The hand continues past it, over the keys. y and z are unchanged from the original so the fingertips keep the same height over the keycaps. */
-  wrist: [0.150, 0.862, 0.372] as Vec3,
-  /** Direction the elbow wants to swing (x is mirrored): out and down. The elbows sit just outside the torso and the forearms angle in to the keys (about 35 degrees), as in the reference pose. */
-  elbowHint: [0.1, -0.8, -0.15] as Vec3,
-  /** How far the hand pitches down past the forearm direction (rad), so the fingertips reach the keys. Solved for the current wrist and elbow so the hand's final pitch, and so the fingertip height over the keys, equals the original. */
-  handPitch: 0.42,
-  thighRadius: 0.062,
-  shinRadius: 0.05,
-  knee: [0.1, 0.6, 0.36] as Vec3,
-  ankle: [0.1, 0.085, 0.42] as Vec3,
+  /**
+   * Y of the hip joint centres above the floor. Seat top is 0.50 m (chair); hipY sits on top of it.
+   * Raised to 0.62 so the pelvis clears the seat and the thighs are fully visible.
+   */
+  hipY: 0.60,
+  hipX: 0.130,
+  /**
+   * Pelvic girdle: lofted shell. Wider to give a broad humanoid hip.
+   * Made more prominent with deeper profile matching IMAGE 1 "Pelvis / Hip".
+   */
+  pelvis: {
+    z: -0.012,
+    rings: [
+      [0.520, 0.130, 0.110, 2.3], [0.545, 0.172, 0.138, 2.6], [0.580, 0.195, 0.150, 2.8],
+      [0.612, 0.185, 0.140, 2.6], [0.632, 0.148, 0.112, 2.4], [0.650, 0.108, 0.088, 2.1],
+    ] as [number, number, number, number][],
+  },
+  hipJoint: { radius: 0.078, z: 0.068 },
+  waist: { y: 0.718, radius: 0.058, bottomY: 0.680, topY: 0.772 },
+  /**
+   * Ribcage loft rings. Very wide chest (halfWidth 0.214) with flat front face.
+   * High superellipse exponents 3.0–3.4 for the premium flat-fronted chest plating.
+   */
+  chest: {
+    z: -0.014, bottomY: 0.732, topY: 1.090,
+    rings: [
+      [0.752, 0.100, 0.088, 2.2], [0.782, 0.132, 0.110, 2.6], [0.830, 0.168, 0.138, 3.0],
+      [0.880, 0.198, 0.154, 3.2], [0.930, 0.214, 0.158, 3.4], [0.978, 0.212, 0.154, 3.3],
+      [1.015, 0.192, 0.136, 3.0], [1.050, 0.154, 0.108, 2.5], [1.075, 0.110, 0.082, 2.1],
+      [1.090, 0.082, 0.068, 2.0],
+    ] as [number, number, number, number][],
+  },
+  neck: { radius: 0.045, bottomY: 1.032, topY: 1.138, ringYs: [1.070, 1.096] as number[] },
+  /**
+   * Shoulder joint centres. Narrower (x: 0.218) matching the reference's slim mechanical yoke.
+   * capRadius 0.052 — smaller exposed ball joint, not a large rounded pod.
+   */
+  shoulder: { x: 0.218, y: 1.010, z: -0.052, capRadius: 0.052 },
+  /**
+   * Arm lengths. Sized to reach keyboard naturally with elbow properly bent.
+   */
+  upperArm: 0.310,
+  foreArm: 0.310,
+  /**
+   * Arm shell radius — robust arms matching the reference's prominent cylindrical segments.
+   */
+  armRadius: 0.060,
+  handScale: 1.55,
+  handYawFactor: 0.10,
+  /**
+   * Wrist target in robot-local space (x mirrored per side).
+   * y=0.775: just above desk (0.75), low enough that fingers press on keys.
+   * z=0.430: further forward so fingertips reach the home-row keys.
+   * x=0.195: wider spread matching the reference's natural arm splay.
+   */
+  wrist: [0.195, 0.775, 0.430] as Vec3,
+  elbowHint: [0.38, -0.12, -0.20] as Vec3,
+  handPitch: 0.26,
+  /**
+   * Thigh radius — very prominent oval thighs matching IMAGE 1.
+   * WIDEN = 1.60 in RobotBody gives the characteristic seated-thigh oval cross-section.
+   */
+  thighRadius: 0.086,
+  shinRadius: 0.068,
+  /**
+   * Seated posture (IMAGE 1 "Seated Posture Reference"):
+   * - Thighs nearly horizontal: hip at y=0.60, knee at y=0.58 (thigh forward toward desk)
+   * - Knee goes forward in z from hip joint
+   * - Shins go nearly straight down from knee to ankle
+   * - Feet flat on floor (y≈0.08)
+   * [x, y, z] in robot-local space. x is mirrored per side.
+   */
+  knee: [0.130, 0.580, 0.400] as Vec3,
+  ankle: [0.130, 0.090, 0.400] as Vec3,
 }
 
 /**
  * Screen-faced head. Metres, in head-local space: +x is the robot's left, +y up, +z the front of the face.
  */
 export const ROBOT_HEAD = {
-  /** Neck pivot, relative to ROBOT_POS. */
-  position: [0, 1.245, 0] as Vec3,
+  /** Neck pivot, relative to ROBOT_POS. Raised to 1.300 to match the taller torso. */
+  position: [0, 1.300, 0] as Vec3,
   /** Resting pitch (rad). Positive tips the face down a little, towards the desk and monitor. */
   pitch: 0.04,
   casing: { width: 0.36, height: 0.32, depth: 0.235, radius: 0.04 },
@@ -195,11 +243,32 @@ export const ROBOT_HEAD = {
   },
 }
 
-/** Desk lamp: base on the desk, head aimed at a spot on the desk surface. */
+/**
+ * Architect desk lamp (Lamp.tsx, dimensions in lampModel.ts). `base` is the centre of the weighted base on the desk, in the
+ * same spot as the old lamp. The arm reaches in `facing` (a horizontal direction, x and z) over the desk's back-left corner.
+ * `head` is the bulb and `aim` is where the shade's axis meets the desk surface; both are derived from the lamp's real geometry,
+ * so Lighting.tsx's spot light always shines out of the shade the way the shade points.
+ */
+const LAMP_BASE: Vec3 = [DESK_X - 1.05, DESK_TOP, DESK_Z - 0.20]
+const LAMP_FACING: [number, number] = (() => {
+  const x = 0.95, z = 0.19
+  const len = Math.hypot(x, z)
+  return [x / len, z / len]
+})()
+const LAMP_SCALE = 1.5   // 1 = current size, 1.3 = 30% bigger
+const lampPose = lampPlane()
+const lampAt = (along: number, up: number): Vec3 => [LAMP_BASE[0] + along * LAMP_SCALE * LAMP_FACING[0], LAMP_BASE[1] + up * LAMP_SCALE, LAMP_BASE[2] + along * LAMP_SCALE * LAMP_FACING[1]]
+const lampHead = lampAt(lampPose.bulb[0], lampPose.bulb[1])
+/** Distance along the shade axis from the bulb to the desk surface. */
+const lampReach = lampPose.bulb[1] / -lampPose.axis[1]   // in lamp units; lampAt applies LAMP_SCALE
 export const LAMP = {
-  base: [DESK_X - 0.80, DESK_TOP, DESK_Z - 0.30] as Vec3,
-  head: [DESK_X - 0.75, 1.20, DESK_Z - 0.25] as Vec3,
-  aim: [DESK_X - 0.50, DESK_TOP, DESK_Z + 0.10] as Vec3,
+  base: LAMP_BASE,
+  /** Rotation about y that turns the lamp's forward (+x) axis towards `facing`. */
+  yaw: Math.atan2(-LAMP_FACING[1], LAMP_FACING[0]),
+  facing: LAMP_FACING,
+  scale: LAMP_SCALE,
+  head: lampHead,
+  aim: lampAt(lampPose.bulb[0] + lampPose.axis[0] * lampReach, 0),
 }
 
 /** Left-side wall display unit and wall pieces. */
@@ -228,16 +297,17 @@ export const CEILING_LIGHT_POS: Vec3 = [0, ROOM.height, -1.5]
 export const CAMERA = {
   fov: 50,
   /**
-   * Look-at target: the middle of the workstation, a little above the desktop, so the monitor, robot and
-   * keyboard sit in the lower-centre of the frame with the window and city above them.
+   * Look-at target: focused on the robot's torso/chest area so the full robot body
+   * is prominent in the frame, matching the reference image composition.
    */
-  focus: [-0.40, 0.80, -1.55] as Vec3,
+  focus: [-0.35, 0.72, -1.60] as Vec3,
   /**
-   * Offset from focus to the default camera position — a close, elevated three-quarter view from the
-   * visitor's right, like the reference: yaw ≈ 40° (right of the desk), pitch ≈ 22° (looking down onto
-   * the desk and the robot's hands). Orbit distance ≈ 4.0 m.
+   * Offset from focus to the default camera position — a three-quarter view from the visitor's
+   * right at a lower pitch so the monitor doesn't fully block the robot's body.
+   * yaw ≈ 38°, pitch ≈ 18° (lower than before so more of the robot torso is visible).
+   * Orbit distance ≈ 3.8 m.
    */
-  offset: [2.70, 1.30, 2.67] as Vec3,
+  offset: [2.45, 1.05, 2.80] as Vec3,
   /**
    * The camera looks this far (m) above the orbit pivot. The camera position is unchanged (so what hides what
    * stays the same); only the framing shifts, lifting the shelf, window and pegboard into view and trimming empty floor.

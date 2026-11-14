@@ -1,14 +1,14 @@
 import { useMemo } from 'react'
 import { useLoader } from '@react-three/fiber'
 import {
-  Box3, BufferAttribute, CanvasTexture, DoubleSide, Group, MeshPhysicalMaterial, Quaternion, RepeatWrapping, SRGBColorSpace,
+  Box3, BufferAttribute, CanvasTexture, DoubleSide, Group, MeshPhysicalMaterial, RepeatWrapping, SRGBColorSpace,
   Vector3, type Material, type Mesh, type MeshStandardMaterial, type Object3D, type Texture,
 } from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { colors } from '../config/theme'
-import { Box, Limb, type Vec3 } from './parts'
-import { DESK_POS, DESK_TOP, KEYBOARD_MODEL, KEYBOARD_POS, LAMP } from './layout'
+import { Box, type Vec3 } from './parts'
+import { DESK_POS, DESK_TOP, KEYBOARD_MODEL, KEYBOARD_POS } from './layout'
 import { noteTexture } from './textures'
 
 /**
@@ -61,39 +61,6 @@ export function Keyboard() {
   )
 }
 
-/** Adjustable desk lamp: weighted base, two-segment arm and a cone shade aimed at the desk. */
-export function Lamp() {
-  const [bx, by, bz] = LAMP.base
-  const [hx, hy, hz] = LAMP.head
-  const joint: Vec3 = [bx + 0.04, by + 0.3, bz + 0.02]
-  const elbow: Vec3 = [hx - 0.03, hy + 0.07, hz - 0.02]
-  const shadeQuat = useMemo(() => {
-    const away = new Vector3(...LAMP.head).sub(new Vector3(...LAMP.aim)).normalize()
-    return new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), away)
-  }, [])
-  return (
-    <group>
-      <mesh position={[bx, by + 0.01, bz]} castShadow>
-        <cylinderGeometry args={[0.085, 0.09, 0.02, 32]} />
-        <meshStandardMaterial color="#1b1a1f" roughness={0.35} metalness={0.7} />
-      </mesh>
-      <Limb from={[bx, by + 0.02, bz]} to={joint} radius={0.008} color="#1b1a1f" roughness={0.35} metalness={0.7} />
-      <Limb from={joint} to={elbow} radius={0.007} color="#1b1a1f" roughness={0.35} metalness={0.7} />
-      <mesh position={joint}><sphereGeometry args={[0.013, 12, 12]} /><meshStandardMaterial color="#2b2a30" metalness={0.7} roughness={0.35} /></mesh>
-      <group position={LAMP.head} quaternion={shadeQuat}>
-        <mesh castShadow>
-          <cylinderGeometry args={[0.022, 0.066, 0.1, 28, 1, true]} />
-          <meshStandardMaterial color="#1b1a1f" roughness={0.4} metalness={0.7} side={DoubleSide} />
-        </mesh>
-        <mesh position={[0, -0.046, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[0.058, 28]} />
-          <meshBasicMaterial color="#ffd9a6" toneMapped={false} />
-        </mesh>
-      </group>
-    </group>
-  )
-}
-
 /** Thin square of paper with handwriting. The ink plane sits just above the paper via polygon offset, avoiding z-fighting. */
 function Note({ position, yaw, paper, seed, thickness = 0.0015, size = 0.075 }: {
   position: Vec3; yaw: number; paper: string; seed: number; thickness?: number; size?: number
@@ -112,9 +79,9 @@ function Note({ position, yaw, paper, seed, thickness = 0.0015, size = 0.075 }: 
 export function StickyNotes() {
   return (
     <group position={DESK_POS}>
-      <Note position={[-0.93, DESK_TOP, 0.1]} yaw={0.15} paper="#f2d36b" seed={3} thickness={0.012} size={0.08} />
-      <Note position={[-0.82, DESK_TOP, 0.0]} yaw={-0.3} paper="#f2d36b" seed={7} />
-      <Note position={[-0.765, DESK_TOP + 0.0016, 0.025]} yaw={0.25} paper="#e89ab4" seed={9} />
+      <Note position={[-0.73, DESK_TOP, -0.1]} yaw={0.15} paper="#f2d36b" seed={3} thickness={0.012} size={0.08} />
+      <Note position={[-0.62, DESK_TOP, -0.1]} yaw={-0.3} paper="#f2d36b" seed={7} />
+      <Note position={[-0.665, DESK_TOP + 0.0016, 0.025]} yaw={0.25} paper="#e89ab4" seed={9} />
     </group>
   )
 }
@@ -122,7 +89,7 @@ export function StickyNotes() {
 /** Small hardback: cover, cream pages, spine and an amber ribbon marker. */
 export function Book() {
   return (
-    <group position={[DESK_POS[0] - 0.86, DESK_TOP, DESK_POS[2] + 0.29]} rotation={[0, 0.35, 0]}>
+    <group position={[DESK_POS[0] - 0.66, DESK_TOP, DESK_POS[2] + 0.29]} rotation={[0, 2.05, 0]} scale={[1, 1, 0.9]}>
       <Box size={[0.16, 0.004, 0.22]} position={[0, 0.002, 0]} color="#27474f" roughness={0.7} />
       <Box size={[0.15, 0.02, 0.21]} position={[0.003, 0.014, 0]} color="#e6dccb" roughness={0.9} />
       <Box size={[0.16, 0.004, 0.22]} position={[0, 0.026, 0]} color="#27474f" roughness={0.7} />
@@ -135,7 +102,7 @@ export function Book() {
 /** A pen resting on the desk surface: body, grip, cap clip. Radius 0.004 so its centre sits 4 mm above the desk. */
 export function Pen() {
   return (
-    <group position={[DESK_POS[0] - 0.7, DESK_TOP + 0.004, DESK_POS[2] + 0.28]} rotation={[0, 0.5, 0]}>
+    <group position={[DESK_POS[0] - 0.66, DESK_TOP + 0.032, DESK_POS[2] + 0.29]} rotation={[0, 0.8, 0]}>
       <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
         <cylinderGeometry args={[0.004, 0.004, 0.14, 12]} />
         <meshStandardMaterial color="#1c2733" roughness={0.3} metalness={0.5} />

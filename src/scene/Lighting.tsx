@@ -54,8 +54,8 @@ export function Lighting() {
         angle={0.85} penumbra={1} intensity={14} distance={7}
         castShadow={!lowPower} shadow-mapSize={[1024, 1024]} shadow-bias={-0.0005} shadow-radius={4}
       />
-      {/* Desk lamp: local pool of amber light on the desk surface */}
-      <Spot color="#ffb870" position={LAMP.head} aim={LAMP.aim} angle={0.5} penumbra={0.9} intensity={6} distance={2.6} />
+      {/* Desk lamp: soft warm (about 2800 K) pool on the desk. LAMP.head is the bulb and LAMP.aim where the shade axis meets the desk (both from the lamp's own geometry). */}
+      <Spot color="#ffb877" position={LAMP.head} aim={LAMP.aim} angle={0.6} penumbra={1} intensity={5.5} distance={2.4} />
 
       {/* Shelf and pegboard LEDs: warm light spilling on the wall, books, sofa and cat bed */}
       <pointLight color="#ffb36b" position={[SHELF_POS[0] + 0.45, 1.9, SHELF_POS[2]]} intensity={3.2} distance={4.8} />
