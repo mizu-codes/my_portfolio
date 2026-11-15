@@ -3,12 +3,14 @@ import { ACESFilmicToneMapping } from 'three'
 import { colors } from '../config/theme'
 import { CAMERA } from './layout'
 import { CameraRig } from './CameraRig'
+import { CITY_FAR } from './city/cityConfig'
 import { Chair } from './Chair'
 import { City } from './City'
 import { CatBed } from './CatBed'
 import { CeilingLight } from './CeilingLight'
 import { CoffeeTable } from './CoffeeTable'
 import { Desk, Monitor } from './Desk'
+import { DeskMat } from './DeskMat'
 import { Book, Keyboard, Mouse, Pen, Phone, StickyNotes } from './DeskProps'
 import { Lamp } from './Lamp'
 import { Environment } from './Environment'
@@ -30,7 +32,7 @@ export default function Scene({ onInteract }: { onInteract?: () => void; hotspot
     <Canvas
       shadows={!lowPower}
       dpr={[1, MAX_DPR]}
-      camera={{ fov: CAMERA.fov, near: 0.1, far: 120, position: [fx + ox, fy + oy, fz + oz] }}
+      camera={{ fov: CAMERA.fov, near: 0.1, far: CITY_FAR, position: [fx + ox, fy + oy, fz + oz] }}
       gl={{ antialias: true, powerPreference: 'high-performance', toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
       aria-label="Interactive 3D developer studio at night"
     >
@@ -43,6 +45,7 @@ export default function Scene({ onInteract }: { onInteract?: () => void; hotspot
       <City />
       <Desk />
       <Monitor />
+      <DeskMat />
       <Keyboard />
       <Lamp />
       <StickyNotes />

@@ -8,15 +8,15 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { colors } from '../config/theme'
 import { Box, type Vec3 } from './parts'
-import { DESK_POS, DESK_TOP, KEYBOARD_MODEL, KEYBOARD_POS } from './layout'
+import { DESK_MAT_THICKNESS, DESK_POS, DESK_TOP, KEYBOARD_MODEL, KEYBOARD_POS } from './layout'
 import { noteTexture } from './textures'
 
 /**
  * Mechanical keyboard: the optimised GLB (see scripts/optimize-keyboard.mjs). It is Meshopt-compressed with WebP textures, so
  * the loader needs the decoder that ships with three. The original, full-quality mechanical_keyboard.glb is not loaded.
  */
-const KEYBOARD_MODEL_URL = `${import.meta.env.BASE_URL}models/mechanical_keyboard_web.glb`
-const withMeshopt = (loader: GLTFLoader) => { loader.setMeshoptDecoder(MeshoptDecoder) }
+export const KEYBOARD_MODEL_URL = `${import.meta.env.BASE_URL}models/mechanical_keyboard_web.glb`
+export const withMeshopt = (loader: GLTFLoader) => { loader.setMeshoptDecoder(MeshoptDecoder) }
 // Start downloading as soon as this module is evaluated, in parallel with WebGL start-up.
 useLoader.preload(GLTFLoader, KEYBOARD_MODEL_URL, withMeshopt)
 
@@ -52,7 +52,7 @@ export function Keyboard() {
   const { yaw, scale, offset } = KEYBOARD_MODEL
   return (
     <group
-      position={[KEYBOARD_POS[0] + offset[0], KEYBOARD_POS[1] + offset[1], KEYBOARD_POS[2] + offset[2]]}
+      position={[KEYBOARD_POS[0] + offset[0], KEYBOARD_POS[1] + offset[1] + DESK_MAT_THICKNESS, KEYBOARD_POS[2] + offset[2]]}
       rotation={[0, yaw, 0]}
       scale={scale}
     >
@@ -115,15 +115,57 @@ export function Pen() {
   )
 }
 
-/** Phone lying screen-up: glass slab, black screen and a thin metal frame. */
+/**
+ * Nothing Phone: public/models/nothing_4a_3d_model.glb, used as supplied (geometry, textures, clear-coat sides and transparent back
+ * are the file's own materials; nothing is recoloured). In the file the phone stands upright: length along y, screen towards +z,
+ * back towards -z. At load it is turned about x so the back faces up and the length runs along world z, then re-centred with its
+ * underside on y = 0 and scaled to PHONE.length. Measuring at load keeps the contact correct for any re-export.
+ * - length: overall length in metres. A real phone is ~0.16 m; the mouse and keyboard are drawn about 2x real size, so 0.3 m matches
+ *   the reference screenshot (a little longer than the mouse) and reads clearly from the opening camera.
+ * - dx / dz: offset from the desk centre (x) and from DESK_Z (z): front-right of the mouse, towards the desk's front edge.
+ * - yaw: the phone's top (camera end) points away from the visitor, leaning slightly to the right. PI flips it end for end; 0.85 is the lean.
+ */
+const PHONE_MODEL_URL = `${import.meta.env.BASE_URL}models/nothing_4a_3d_model.glb`
+useLoader.preload(GLTFLoader, PHONE_MODEL_URL)
+const PHONE = { length: 0.3, dx: 0.95, dz: 0.3, yaw: Math.PI + 0.85 } as const
+
+function buildPhone(source: Object3D): { holder: Group; width: number; length: number } {
+  const model = source.clone(true)
+  const turned = new Group()
+  turned.rotation.x = Math.PI / 2 // back (-z) to up (+y), length (y) to world z
+  turned.add(model)
+  turned.updateMatrixWorld(true)
+  const box = new Box3().setFromObject(turned)
+  const centre = box.getCenter(new Vector3())
+  const size = box.getSize(new Vector3())
+  turned.position.set(-centre.x, -box.min.y, -centre.z)
+  model.traverse((o) => {
+    const mesh = o as Mesh
+    if (!mesh.isMesh) return
+    mesh.castShadow = true
+    mesh.receiveShadow = true
+  })
+  const scale = PHONE.length / size.z
+  const holder = new Group()
+  holder.scale.setScalar(scale)
+  holder.add(turned)
+  return { holder, width: size.x * scale, length: size.z * scale }
+}
+
+/** Phone lying flat on the desk, transparent back up, slightly turned. */
 export function Phone() {
+  const gltf = useLoader(GLTFLoader, PHONE_MODEL_URL)
+  const { holder, width, length } = useMemo(() => buildPhone(gltf.scene), [gltf])
+  const shadow = useMemo(() => contactShadowTexture(), [])
   return (
-    <group position={[DESK_POS[0] + 0.78, DESK_TOP, DESK_POS[2] + 0.1]} rotation={[0, -0.4, 0]}>
-      <Box size={[0.072, 0.0075, 0.152]} position={[0, 0.00375, 0]} color="#303239" roughness={0.3} metalness={0.8} radius={0.009} />
-      <mesh position={[0, 0.0077, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[0.066, 0.146]} />
-        <meshStandardMaterial color="#050608" roughness={0.08} metalness={0.3} polygonOffset polygonOffsetFactor={-2} />
-      </mesh>
+    <group position={[DESK_POS[0] + PHONE.dx, DESK_TOP, DESK_POS[2] + PHONE.dz]} rotation={[0, PHONE.yaw, 0]}>
+      {shadow && (
+        <mesh position={[0, 0.0007, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
+          <planeGeometry args={[width * 1.35, length * 1.12]} />
+          <meshBasicMaterial map={shadow} transparent opacity={0.6} depthWrite={false} polygonOffset polygonOffsetFactor={-2} toneMapped={false} />
+        </mesh>
+      )}
+      <primitive object={holder} />
     </group>
   )
 }
@@ -133,7 +175,7 @@ export function Phone() {
  * The file is never edited. At load, each of its five meshes has its triangles regrouped by role and given the palette below
  * (see buildMouse). In the model's own frame the nose (scroll wheel and buttons) is +x, up is +y and the width is z.
  */
-const MOUSE_MODEL_URL = `${import.meta.env.BASE_URL}models/computer_mouse.glb`
+export const MOUSE_MODEL_URL = `${import.meta.env.BASE_URL}models/computer_mouse.glb`
 useLoader.preload(GLTFLoader, MOUSE_MODEL_URL)
 
 /**
@@ -347,6 +389,42 @@ function contactShadowTexture(): CanvasTexture | null {
 }
 
 /**
+ * Where the mouse sits. The nose is the model's +x; a yaw of -PI/2 turns it to world +z (towards the monitor) and the tilt then swings it
+ * towards +x. Its x comes from the keyboard's right edge so the two never overlap. halfX / halfZ are the half-extents of its tilted footprint.
+ */
+function mousePlacement(length: number, width: number) {
+  const tilt = (MOUSE.tiltDeg * Math.PI) / 180
+  const yaw = -Math.PI / 2 + tilt
+  const halfX = (length / 2) * Math.abs(Math.sin(tilt)) + (width / 2) * Math.abs(Math.cos(tilt))
+  const halfZ = (length / 2) * Math.abs(Math.cos(tilt)) + (width / 2) * Math.abs(Math.sin(tilt))
+  const keyboardRight = KEYBOARD_POS[0] + KEYBOARD_MODEL.offset[0] + (KEYBOARD_LENGTH_1X * KEYBOARD_MODEL.scale) / 2
+  const x = keyboardRight + MOUSE.gap + halfX
+  const z = KEYBOARD_POS[2] + KEYBOARD_MODEL.offset[2] + MOUSE.zOffset
+  return { x, z, yaw, halfX, halfZ }
+}
+
+/**
+ * Rectangle (world x/z, metres) that holds the keyboard and the mouse, measured from the loaded models, for the desk mat.
+ * The keyboard's long side runs along world x (see KEYBOARD_MODEL.yaw); the mouse's footprint is the tilted one from mousePlacement.
+ */
+export function workstationFootprint(keyboardScene: Object3D, mouseScene: Object3D) {
+  const kb = new Box3().setFromObject(keyboardScene).getSize(new Vector3())
+  const kbHalfX = (Math.max(kb.x, kb.z) * KEYBOARD_MODEL.scale) / 2
+  const kbHalfZ = (Math.min(kb.x, kb.z) * KEYBOARD_MODEL.scale) / 2
+  const kx = KEYBOARD_POS[0] + KEYBOARD_MODEL.offset[0]
+  const kz = KEYBOARD_POS[2] + KEYBOARD_MODEL.offset[2]
+  const ms = new Box3().setFromObject(mouseScene).getSize(new Vector3())
+  const k = MOUSE.length / ms.x
+  const m = mousePlacement(MOUSE.length, ms.z * k)
+  return {
+    minX: kx - kbHalfX,
+    maxX: Math.max(kx + kbHalfX, m.x + m.halfX),
+    minZ: Math.min(kz - kbHalfZ, m.z - m.halfZ),
+    maxZ: Math.max(kz + kbHalfZ, m.z + m.halfZ),
+  }
+}
+
+/**
  * Wireless mouse on the keyboard's right-hand side (+x, the visitor's right at the default camera), nose pointing away from the robot
  * towards the monitor and swung MOUSE.tiltDeg towards +x. Its x is derived from the keyboard's right edge so the two never overlap.
  */
@@ -356,17 +434,10 @@ export function Mouse() {
   const shadow = useMemo(() => contactShadowTexture(), [])
   const { holder, width, length } = built
 
-  // The nose is the model's +x. A yaw of -PI/2 turns it to world +z (towards the monitor); the tilt then swings it towards +x.
-  const tilt = (MOUSE.tiltDeg * Math.PI) / 180
-  const yaw = -Math.PI / 2 + tilt
-  // Half-extent of the tilted footprint along world x, so the gap is measured to its nearest corner.
-  const halfX = (length / 2) * Math.abs(Math.sin(tilt)) + (width / 2) * Math.abs(Math.cos(tilt))
-  const keyboardRight = KEYBOARD_POS[0] + KEYBOARD_MODEL.offset[0] + (KEYBOARD_LENGTH_1X * KEYBOARD_MODEL.scale) / 2
-  const x = keyboardRight + MOUSE.gap + halfX
-  const z = KEYBOARD_POS[2] + KEYBOARD_MODEL.offset[2] + MOUSE.zOffset
+  const { x, z, yaw } = mousePlacement(length, width)
 
   return (
-    <group position={[x, DESK_TOP, z]} rotation={[0, yaw, 0]}>
+    <group position={[x, DESK_TOP + DESK_MAT_THICKNESS, z]} rotation={[0, yaw, 0]}>
       {shadow && (
         <mesh position={[0, 0.0007, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
           <planeGeometry args={[length * 1.22, width * 1.3]} />

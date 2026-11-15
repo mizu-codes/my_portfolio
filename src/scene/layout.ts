@@ -33,6 +33,14 @@ export const DESK_X = -0.65
 /** World z of the desk's centre. Negative = toward the back wall / window. */
 export const DESK_Z = -1.2
 export const DESK_POS: Vec3 = [DESK_X, 0, DESK_Z]
+/**
+ * Sideways shift (m, +x = the visitor's right) applied to the whole workstation as one group: robot, chair (placed from the robot),
+ * monitor, keyboard and mouse (placed from the keyboard). The desk, lamp, notes, book, pen and phone stay where they are.
+ */
+export const WORKSTATION_SHIFT_X = 0.15
+export const WORKSTATION_X = DESK_X + WORKSTATION_SHIFT_X
+/** Thickness of the keyboard/mouse mat (m). The keyboard and mouse are lifted by this much so they rest on the mat. */
+export const DESK_MAT_THICKNESS = 0.003
 /** Converts an x position measured from the desk's centre into world x. */
 export const onDesk = (x: number) => DESK_X + x
 
@@ -42,9 +50,9 @@ export const onDesk = (x: number) => DESK_X + x
  * monitor toward robot); the rear panel with the PROJECTS label faces the visitor.
  * The robot's head yaw is calculated from the actual monitor position, not assumed to be zero.
  */
-export const ROBOT_POS: Vec3 = [DESK_X, 0, DESK_Z - 0.58]
+export const ROBOT_POS: Vec3 = [WORKSTATION_X, 0, DESK_Z - 0.58]
 export const CHAIR_POS: Vec3 = [ROBOT_POS[0], 0, ROBOT_POS[2] - 0.01]
-export const KEYBOARD_POS: Vec3 = [DESK_X, DESK_TOP, DESK_Z - 0.12]
+export const KEYBOARD_POS: Vec3 = [WORKSTATION_X, DESK_TOP, DESK_Z - 0.12]
 /**
  * Mechanical keyboard GLB (public/models/mechanical_keyboard_web.glb, a Meshopt/WebP build of mechanical_keyboard.glb).
  * KEYBOARD_POS stays the anchor, so the mouse (placed from it) does not move. The model is measured at load and re-centred so its
@@ -60,8 +68,8 @@ export const KEYBOARD_POS: Vec3 = [DESK_X, DESK_TOP, DESK_Z - 0.12]
  *   centre toward the function-key end, land on the robot's centre line, between the two hands. The mouse is derived from the board's edge, so it moves with it.
  */
 export const KEYBOARD_MODEL = {
-  yaw: Math.PI / 2,
-  scale: 2.60,
+  yaw: Math.PI / 2 + (3 * Math.PI) / 180,
+  scale: 2.50,
   offset: [-0.07, 0, 0.12] as Vec3,
 } as const
 
@@ -77,7 +85,7 @@ export const KEYBOARD_MODEL = {
 export const MONITOR_OFFSET_X = 0
 
 export const MONITOR = {
-  position: [DESK_X + MONITOR_OFFSET_X, DESK_TOP, DESK_Z + 0.45] as Vec3,
+  position: [WORKSTATION_X + MONITOR_OFFSET_X, DESK_TOP, DESK_Z + 0.45] as Vec3,
   yaw: 0,
   /** Monitor-space z of the casing's front (screen-side) face. 0 = screen flush with GLB z-origin (screen faces -z, toward robot). */
   frontZ: 0.000,
@@ -163,8 +171,8 @@ export const ROBOT_BODY = {
   /**
    * Arm lengths. Sized to reach keyboard naturally with elbow properly bent.
    */
-  upperArm: 0.310,
-  foreArm: 0.310,
+  upperArm: 0.300,
+  foreArm: 0.300,
   /**
    * Arm shell radius — robust arms matching the reference's prominent cylindrical segments.
    */
@@ -177,8 +185,8 @@ export const ROBOT_BODY = {
    * z=0.430: further forward so fingertips reach the home-row keys.
    * x=0.195: wider spread matching the reference's natural arm splay.
    */
-  wrist: [0.195, 0.775, 0.430] as Vec3,
-  elbowHint: [0.38, -0.12, -0.20] as Vec3,
+  wrist: [0.195, 0.840, 0.380] as Vec3,
+  elbowHint: [0.08, -0.12, -0.20] as Vec3,
   handPitch: 0.26,
   /**
    * Thigh radius — very prominent oval thighs matching IMAGE 1.
