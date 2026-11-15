@@ -16,7 +16,7 @@ export interface Car {
   s: number
   v: number
   accel: number
-  /** 0 sedan, 1 SUV, 2 bus */
+  /** 0 sedan, 1 SUV, 2 bus, 3 van */
   variant: number
   color: number
   len: number
@@ -38,7 +38,7 @@ export function signalState(t: number): Signals {
   return { main: 'red', cross: 'red' }
 }
 
-const CAR_LEN = [4.4, 4.7, 11.2]
+const CAR_LEN = [4.4, 4.7, 11.2, 5.4]
 
 export function createTraffic(tier: CityTier): Traffic {
   const rand = mulberry32(77)
@@ -55,7 +55,9 @@ export function createTraffic(tier: CityTier): Traffic {
     routes.push(r)
     const ri = routes.length - 1
     for (let i = 0; i < count; i++) {
-      const variant = allowBus && i === 0 && rand() < 0.6 ? 2 : (rand() < 0.65 ? 0 : 1)
+      const kind = rand()
+      // mostly sedans and SUVs, an occasional van, and (first car on the kerb lanes) now and then a bus
+      const variant = allowBus && i === 0 && rand() < 0.4 ? 2 : (kind < 0.46 ? 0 : kind < 0.82 ? 1 : 3)
       cars.push({
         route: ri, s: (i + rand() * 0.6) * (r.length / count), v: r.speed, accel: 0, variant,
         color: Math.floor(rand() * 7), len: CAR_LEN[variant], v0: r.speed * R(0.9, 1.1),
@@ -65,7 +67,7 @@ export function createTraffic(tier: CityTier): Traffic {
 
   // ---- main avenue (z0): four lanes. Right-hand traffic: eastbound (+x) uses the near (south) lanes.
   const A_X0 = -215, A_X1 = 75, A_LEN = A_X1 - A_X0
-  const per = low ? 3 : 5
+  const per = low ? 5 : 9 // ~32 m between cars: the stretch of avenue seen from the window always has several
   for (const [side, dir] of [[1, 1], [-1, -1]] as const) {
     for (const laneIdx of [0, 1]) {
       const off = side * (lane * (laneIdx + 0.5))

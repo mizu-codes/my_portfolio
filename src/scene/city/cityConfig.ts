@@ -3,8 +3,11 @@
  * World units are metres. The room's window is in the back wall (z = -3.2); the city lies behind it (-z).
  */
 
-/** Height of the street surface. The studio is ~3.5 m above the street (first floor over a shopfront). */
-export const GROUND_Y = -3.5
+/**
+ * Height of the street surface relative to the studio floor (y = 0). The studio is on an upper floor of a modern building,
+ * about six storeys (19.5 m) above the street, so the road is seen from above and well below eye level.
+ */
+export const GROUND_Y = -19.5
 /** Approximate eye height of the default camera. Used to cap skyline elevation angles. */
 export const EYE_Y = 1.77
 /** Camera far plane needed to see the whole city (the original scene used 120). */
@@ -21,7 +24,8 @@ export const parkEdge = (r: RoadType) => carriageHalf(r) + r.parking
 export const walkEdge = (r: RoadType) => parkEdge(r) + r.walk
 
 /** Avenues run along x. Index 0 is the major avenue closest to the window; the rest are local streets. */
-export const AVENUE_Z0 = -62
+/** The avenue is ~44 m from the window: close enough to read cars and palm trunks from above, far enough to sit below the sill's view cone. */
+export const AVENUE_Z0 = -47
 export const AVENUE_SPACING = 109
 export const avenueZ = (k: number) => AVENUE_Z0 - AVENUE_SPACING * k
 export const avenueType = (k: number) => (k === 0 ? MAJOR : MINOR)
@@ -33,7 +37,7 @@ export const crossX = (k: number) => CROSS_X0 + CROSS_SPACING * k
 export const CROSS_TYPE = MINOR
 
 /** Part of the world that gets detailed streets, lamps, cars and trees. Everything further out is skyline only. */
-export const NEAR_FIELD = { xMin: -470, xMax: 175, zMax: -40, zMin: -300 }
+export const NEAR_FIELD = { xMin: -470, xMax: 175, zMax: -14, zMin: -300 }
 
 /** The moon: azimuth is measured from straight ahead (-z) towards the left (-x) as seen from the room. */
 export const MOON = { azDeg: 28, elDeg: 8.3, radiusDeg: 1.35 }

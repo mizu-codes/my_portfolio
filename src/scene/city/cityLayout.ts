@@ -15,7 +15,8 @@ export interface BuildingData {
   warm: number
 }
 export interface PropData { x: number; y: number; z: number; w: number; h: number; d: number }
-export interface TreeData { x: number; z: number; s: number; tint: [number, number, number] }
+/** `y` is the base elevation (defaults to street level; rooftop gardens set it) and `h` an explicit palm height in metres. */
+export interface TreeData { x: number; z: number; s: number; tint: [number, number, number]; y?: number; h?: number }
 export interface LampData { x: number; z: number; rot: number; scale: number }
 export interface ParkedData { x: number; z: number; rot: number; variant: number; color: number }
 export interface BeaconData { x: number; y: number; z: number; size: number; period: number; phase: number }
@@ -80,7 +81,7 @@ export function generateCity(tier: CityTier): CityLayout {
     return Math.min(160, Math.max(8, hMax * boost * (0.5 + 0.5 * r)))
   }
 
-  const addBuilding = (x: number, z: number, w: number, d: number, h: number, near: boolean) => {
+  const addBuilding = (x: number, z: number, w: number, d: number, h: number, near: boolean, garden = false) => {
     const dist = Math.hypot(x, z)
     let style: number
     if (h > 55) style = rand() < 0.7 ? 3 : 1
@@ -98,7 +99,7 @@ export function generateCity(tier: CityTier): CityLayout {
 
     const top = GROUND_Y + h
     // rooftop clutter
-    if (h > 14) {
+    if (h > 14 && !garden) {
       const n = low ? 1 : 1 + Math.floor(rand() * 3)
       for (let i = 0; i < n; i++) {
         const pw = R(2.5, Math.min(7, w * 0.45)), pd = R(2.5, Math.min(7, d * 0.45)), ph = R(1.2, 3.2)
@@ -166,6 +167,7 @@ export function generateCity(tier: CityTier): CityLayout {
     }
   }
 
+
   /* ---------------------------------------------------------------- far field: skyline mass */
   const spacingFactor = low ? 1.5 : 1
   for (let dist = 290; dist < 980; dist += R(60, 85) * (low ? 1.25 : 1)) {
@@ -203,10 +205,13 @@ export function generateCity(tier: CityTier): CityLayout {
       }
       // trees: mostly on the far pavement so the near side never blocks the view of the road
       const near = side > 0
-      for (let x = NEAR_FIELD.xMin + 6; x < NEAR_FIELD.xMax; x += treeStep * (near ? 2.4 : 1) * R(0.85, 1.2)) {
+      for (let x = NEAR_FIELD.xMin + 6; x < NEAR_FIELD.xMax; x += treeStep * (near ? (ak === 0 ? 1.7 : 2.4) : 1) * R(0.85, 1.25)) {
         if (toCross(x) < crossClear || !inNear(x, walkMid)) continue
-        if (near && ak === 0) shrubs.push({ x, z: walkMid + 1.0, s: R(0.8, 1.3), tint: treeTint() })
-        else trees.push({ x, z: walkMid + (near ? 0 : -0.3), s: near ? R(0.55, 0.75) : R(0.7, 1.05), tint: treeTint() })
+        if (near && ak === 0) {
+          // near pavement of the avenue: palms of mixed height whose crowns rise towards the window, with a shrub between
+          trees.push({ x, z: walkMid + R(-0.6, 0.6), s: 1, h: R(8.5, 17), tint: treeTint() })
+          shrubs.push({ x: x + R(6, 9), z: walkMid + 1.0, s: R(0.8, 1.3), tint: treeTint() })
+        } else trees.push({ x, z: walkMid + (near ? 0 : -0.3), s: near ? R(0.55, 0.75) : R(0.7, 1.05), tint: treeTint() })
       }
       // parked cars in the parking lane
       const parkZ = zc + side * (type.lane * type.lanes + type.parking / 2)
@@ -259,6 +264,70 @@ export function generateCity(tier: CityTier): CityLayout {
     }
     for (let i = 0; i < (low ? 8 : 16); i++) {
       shrubs.push({ x: p.x + R(-p.w * 0.46, p.w * 0.46), z: p.z + R(-p.d * 0.44, p.d * 0.44), s: R(0.8, 1.6), tint: treeTint() })
+    }
+  }
+
+
+  /* ---------------------------------------------------------------- near frontage row
+   * The studio is ~19.5 m above the street. Between its window and the avenue stands a row of low and mid-rise buildings
+   * (roofs from ~6 to ~19 m above the street, i.e. below and around the sill), set back by varying amounts and separated by
+   * courtyards and the cross street. From above you see rooftops, roof gardens with palms and lit facades; through the gaps
+   * you see down onto the pavement and the traffic. */
+  {
+    const frontLine = avenueZ(0) + walkEdge(avenueType(0)) + 1.2          // building line on the avenue side (-32.9)
+    const backLimit = -13                                                  // keep a light-well between the row and the studio wall
+    const crossHalf = walkEdge(CROSS_TYPE) + 1.2
+    const nearCross = (x: number) => {
+      for (let k = -6; k <= 2; k++) if (Math.abs(x - crossX(k)) < crossHalf) return true
+      return false
+    }
+    const palmTint = treeTint
+    let x = NEAR_FIELD.xMin
+    while (x < NEAR_FIELD.xMax) {
+      if (nearCross(x)) { x += 4; continue }
+      const w = R(11, 22)
+      const cx = x + w / 2
+      if (nearCross(x + w) || nearCross(cx)) { x += 4; continue }
+      const inView = cx > -70 && cx < 25                                   // the stretch the window actually looks onto
+      const kind = rand()
+      const gap = kind < (inView ? 0.5 : 0.22)
+      if (gap) {
+        // courtyard / plaza: a small cluster of palms of different heights standing on the pavement
+        const n = low ? 2 : 2 + Math.floor(rand() * 3)
+        for (let i = 0; i < n; i++) {
+          trees.push({
+            x: x + R(2, w - 2), z: R(frontLine + 2, backLimit - 2), s: 1,
+            h: R(10, 21), tint: palmTint(),
+          })
+        }
+        x += w + R(1, 3)
+        continue
+      }
+      const depth = R(9, 15)
+      const setBack = inView ? R(0, 4) : R(0, 8)
+      const zA = frontLine + setBack
+      const zB = Math.min(zA + depth, backLimit)
+      const dd = zB - zA
+      if (dd < 7) { x += w; continue }
+      // height class (m above street): roofs below the sill, roofs around eye level, and a few taller ones off to the sides
+      const hk = rand()
+      let h: number
+      if (inView) h = hk < 0.7 ? R(7, 11.5) : R(12.5, 16)   // low roofs in front of the window, so the street stays visible beyond them
+      else if (hk < 0.36) h = R(7, 11.5)
+      else if (hk < 0.78) h = R(13, 20.5)
+      else h = R(24, 33)
+      const garden = h < 22 && w > 12 && rand() < 0.55
+      addBuilding(cx, (zA + zB) / 2, w, dd, h, true, garden)
+      if (garden) {
+        const n = low ? 1 : 1 + Math.floor(rand() * 3)
+        for (let i = 0; i < n; i++) {
+          trees.push({
+            x: cx + R(-w * 0.34, w * 0.34), z: (zA + zB) / 2 + R(-dd * 0.3, dd * 0.3), s: 1,
+            y: GROUND_Y + h, h: R(7.5, 13), tint: palmTint(),
+          })
+        }
+      }
+      x += w + (rand() < 0.4 ? R(5, 11) : R(0.8, 3))
     }
   }
 

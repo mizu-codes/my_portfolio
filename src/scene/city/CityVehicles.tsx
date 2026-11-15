@@ -23,6 +23,7 @@ const PALETTE: [number, number, number][] = [
   [0.82, 0.83, 0.88], [0.58, 0.6, 0.67], [0.07, 0.07, 0.085], [0.5, 0.06, 0.07], [0.1, 0.2, 0.5], [0.9, 0.62, 0.05], [0.2, 0.21, 0.25],
 ]
 const BUS_PALETTE: [number, number, number][] = [[0.75, 0.1, 0.1], [0.12, 0.3, 0.6], [0.8, 0.82, 0.86]]
+const VAN_PALETTE: [number, number, number][] = [[0.86, 0.87, 0.9], [0.86, 0.87, 0.9], [0.14, 0.26, 0.5], [0.55, 0.57, 0.63], [0.9, 0.62, 0.05]]
 
 function sedan() {
   return mergeAll([
@@ -57,6 +58,19 @@ function bus() {
   return mergeAll(parts)
 }
 
+function van() {
+  return mergeAll([
+    boxAt(5.4, 0.62, 2.0, 0, 0.7, 0, body),                  // lower body
+    boxAt(1.35, 0.78, 1.9, 1.95, 1.4, 0, glass),             // cab: windscreen and side glass
+    boxAt(1.3, 0.07, 1.84, 1.92, 1.82, 0, body),             // cab roof
+    boxAt(3.95, 1.25, 1.96, -0.65, 1.55, 0, body),           // tall cargo box
+    boxAt(3.95, 0.08, 1.7, -0.65, 2.2, 0, [0.9, 0.9, 0.93, TINT]), // roof panel, reads clearly from above
+    ...[[1.7, 0.9], [1.7, -0.9], [-1.55, 0.9], [-1.55, -0.9]].map(([x, z]) => boxAt(0.8, 0.7, 0.26, x, 0.35, z, tyre)),
+    boxAt(0.06, 0.15, 0.5, 2.7, 0.8, 0.7, headC), boxAt(0.06, 0.15, 0.5, 2.7, 0.8, -0.7, headC),
+    boxAt(0.06, 0.2, 0.46, -2.7, 0.9, 0.7, tailC), boxAt(0.06, 0.2, 0.46, -2.7, 0.9, -0.7, tailC),
+  ])
+}
+
 const beamVertex = /* glsl */ `
 varying vec2 vUv;
 varying float vDist;
@@ -86,10 +100,10 @@ const lampColor = (l: Lamp): [number, number, number] => (l === 'green' ? [0.2, 
 function buildSystem(parked: ParkedData[], tier: CityTier) {
     const sim = createTraffic(tier)
     const mat = makeSolidMaterial(GROUND_Y)
-    const geos = [sedan(), suv(), bus()]
+    const geos = [sedan(), suv(), bus(), van()]
 
     // moving cars: one instanced mesh per body style
-    const counts = [0, 0, 0]
+    const counts = [0, 0, 0, 0]
     const slot: number[] = []
     sim.cars.forEach((c) => { slot.push(counts[c.variant]++) })
     const meshes = geos.map((g, v) => {
@@ -100,7 +114,7 @@ function buildSystem(parked: ParkedData[], tier: CityTier) {
       return m
     })
     sim.cars.forEach((c, i) => {
-      const pal = c.variant === 2 ? BUS_PALETTE[c.color % BUS_PALETTE.length] : PALETTE[c.color % PALETTE.length]
+      const pal = c.variant === 2 ? BUS_PALETTE[c.color % BUS_PALETTE.length] : c.variant === 3 ? VAN_PALETTE[c.color % VAN_PALETTE.length] : PALETTE[c.color % PALETTE.length]
       const attr = geos[c.variant].getAttribute('aInst') as InstancedBufferAttribute
       attr.setXYZ(slot[i], pal[0], pal[1], pal[2])
     })

@@ -126,12 +126,12 @@ void main() {
   gl_FragColor = vec4(col, 1.0);
 }`
 
-/** Ground plane carrying the entire road network. Stops short of the room so it can never show through the floor. */
+/** Ground plane carrying the entire road network. Lies ~19.5 m below the room, so it cannot show through the floor. */
 export function CityStreet() {
   const { geo, mat } = useMemo(() => {
-    const g = new PlaneGeometry(2600, 1560)
+    const g = new PlaneGeometry(2600, 1580)
     g.rotateX(-Math.PI / 2)
-    g.translate(-300, GROUND_Y, -20 - 780)
+    g.translate(-300, GROUND_Y, 10 - 790) // z from +10 (under the studio) to -1580
     return {
       geo: g,
       mat: new ShaderMaterial({

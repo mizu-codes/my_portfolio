@@ -158,11 +158,16 @@ void main() {
 const SHADOW_DIR = new Vector3(-MOON_DIR.x, 0, -MOON_DIR.z).normalize()
 const SHADOW_YAW = Math.atan2(SHADOW_DIR.x, SHADOW_DIR.z)
 
-/** Palm height in metres: the layout's tree size, varied per tree, and kept lower close to the window so the view stays open. */
+/**
+ * Palm height in metres. Layout trees can carry an explicit height (`h`); otherwise it comes from the layout's tree size,
+ * varied per tree. The old cap that kept palms low near the window is gone: the window is now well above the street, so
+ * tall palms rise into view instead of blocking it.
+ */
 function palmHeight(t: TreeData, rnd: () => number) {
+  if (t.h !== undefined) return t.h * (0.92 + rnd() * 0.16)
   const h = t.s * HEIGHT_PER_SCALE * (0.82 + rnd() * 0.36)
   const dist = Math.hypot(t.x, t.z + 3.2)
-  const cap = 6.5 + 6.0 * Math.min(Math.max((dist - 50) / 90, 0), 1)
+  const cap = 10 + 8 * Math.min(Math.max((dist - 40) / 90, 0), 1)
   return Math.min(h, cap)
 }
 
@@ -204,12 +209,13 @@ export function PalmTrees({ asset, trees, low }: { asset: PalmAsset; trees: Tree
       const wide = scale * (0.92 + rnd() * 0.18)
       e.set((rnd() - 0.5) * 0.07, rnd() * Math.PI * 2, (rnd() - 0.5) * 0.07) // up to ~2 degrees of lean, any heading
       q.setFromEuler(e)
-      p.set(t.x + (rnd() - 0.5) * 0.6, GROUND_Y, t.z + (rnd() - 0.5) * 0.6)
+      const baseY = t.y ?? GROUND_Y
+      p.set(t.x + (rnd() - 0.5) * 0.6, baseY, t.z + (rnd() - 0.5) * 0.6)
       mesh.setMatrixAt(i, m.compose(p, q, s.set(wide, scale, wide)))
       tint.set(t.tint, i * 3)
 
       const len = height * 0.5, wid = height * 0.17
-      p.set(p.x + SHADOW_DIR.x * len * 0.4, GROUND_Y + 0.05, p.z + SHADOW_DIR.z * len * 0.4)
+      p.set(p.x + SHADOW_DIR.x * len * 0.4, baseY + 0.05, p.z + SHADOW_DIR.z * len * 0.4)
       shadow.setMatrixAt(i, m.compose(p, sq, s.set(wid, 1, len)))
     })
     mesh.count = shadow.count = trees.length

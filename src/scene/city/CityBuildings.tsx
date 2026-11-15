@@ -110,8 +110,8 @@ void main() {
   vec3 cWarm = mix(vec3(1.0, 0.80, 0.48), vec3(1.0, 0.58, 0.28), hash21(aptCell + seed + 11.0));
   vec3 lc = cWarm;
   if (hc > warmBias * 0.78 + 0.1) lc = mix(vec3(1.0, 0.94, 0.80), vec3(0.72, 0.86, 1.0), step(0.5, hash21(aptCell + seed * 5.0)) * (1.0 - warmBias));
-  if (hc < 0.045) lc = vec3(0.45, 0.60, 1.0);
-  if (hc > 0.975) lc = vec3(1.0, 0.55, 0.75);
+  if (hc < 0.012) lc = vec3(0.45, 0.60, 1.0);
+  if (hc > 0.994) lc = vec3(1.0, 0.55, 0.75);
   float bright = 0.55 + 0.45 * hash21(aptCell * 3.3 + seed);
   if (shop) { lc = mix(lc, vec3(1.0, 0.78, 0.5), 0.6); bright = 0.9; }
   float inner = mix(0.72, 1.0, smoothstep(0.0, 0.7, f.y));
