@@ -17,7 +17,11 @@ export interface BuildingData {
 }
 export interface PropData { x: number; y: number; z: number; w: number; h: number; d: number }
 /** `y` is the base elevation (defaults to street level; rooftop gardens set it) and `h` an explicit palm height in metres. */
-export interface TreeData { x: number; z: number; s: number; tint: [number, number, number]; y?: number; h?: number }
+/**
+ * `top` is the absolute world-y of the palm's apex: the trunk is lengthened (crown size untouched) until the palm reaches it, so a
+ * palm can be tall without its fronds being scaled. `fuller` widens the crown/fronds only (1 = as modelled).
+ */
+export interface TreeData { x: number; z: number; s: number; tint: [number, number, number]; y?: number; h?: number; top?: number; fuller?: number }
 export interface LampData { x: number; z: number; rot: number; scale: number }
 export interface ParkedData { x: number; z: number; rot: number; variant: number; color: number }
 export interface BeaconData { x: number; y: number; z: number; size: number; period: number; phase: number }
@@ -310,23 +314,81 @@ export function generateCity(tier: CityTier): CityLayout {
   }
 
 
-  /* ---------------------------------------------------------------- palms between the window and the avenue
-   * No buildings stand in front of the studio: the road, kerbs and traffic stay fully visible from above. Only palms occupy the
-   * strip between the studio's wall and the avenue's near pavement: loosely spaced, at varied depths, so their crowns add depth
-   * without hiding the view. Their trunks are lengthened in PalmTrees.tsx; crown size is whatever `h` gives here. */
+  /* ---------------------------------------------------------------- near frontage row
+   * The studio is ~19.5 m above the street. Between its window and the avenue stands a row of low and mid-rise buildings
+   * (roofs from ~6 to ~19 m above the street, i.e. below and around the sill), set back by varying amounts and separated by
+   * courtyards and the cross street. From above you see rooftops, roof gardens with palms and lit facades; through the gaps
+   * you see down onto the pavement and the traffic. */
   {
-    const frontLine = avenueZ(0) + walkEdge(avenueType(0)) + 1.2   // avenue-side edge of the strip
-    const backLimit = -13                                            // keep clear of the studio's wall
+    const frontLine = avenueZ(0) + walkEdge(avenueType(0)) + 1.2          // building line on the avenue side
+    const backLimit = -13                                                  // keep a light-well between the row and the studio wall
     const crossHalf = walkEdge(CROSS_TYPE) + 1.2
     const nearCross = (x: number) => {
       for (let k = -6; k <= 2; k++) if (Math.abs(x - crossX(k)) < crossHalf) return true
       return false
     }
+    const palmTint = treeTint
     let x = NEAR_FIELD.xMin
     while (x < NEAR_FIELD.xMax) {
-      x += R(18, 34)
-      if (nearCross(x)) continue
-      trees.push({ x, z: R(frontLine + 1, backLimit - 1), s: 1, h: R(5.5, 10), tint: treeTint() })
+      if (nearCross(x)) { x += 4; continue }
+      const w = R(11, 22)
+      const cx = x + w / 2
+      if (nearCross(x + w) || nearCross(cx)) { x += 4; continue }
+      const inView = cx > -70 && cx < 25                                   // the stretch the window actually looks onto
+      const kind = rand()
+      const gap = kind < (inView ? 0.5 : 0.22)
+      if (gap) {
+        // courtyard / plaza: a small cluster of palms of different heights standing on the pavement
+        const n = low ? 1 : 1 + Math.floor(rand() * 2)
+        for (let i = 0; i < n; i++) {
+          trees.push({
+            x: x + R(2, w - 2), z: R(frontLine + 2, backLimit - 2), s: 1,
+            h: R(5.5, 10), tint: palmTint(),
+          })
+        }
+        x += w + R(1, 3)
+        continue
+      }
+      const depth = R(9, 15)
+      const setBack = inView ? R(0, 4) : R(0, 8)
+      const zA = frontLine + setBack
+      const zB = Math.min(zA + depth, backLimit)
+      const dd = zB - zA
+      if (dd < 7) { x += w; continue }
+      const hk = rand()
+      let h: number
+      if (inView) h = hk < 0.7 ? R(7, 11.5) : R(12.5, 16)
+      else if (hk < 0.36) h = R(7, 11.5)
+      else if (hk < 0.78) h = R(13, 20.5)
+      else h = R(24, 33)
+      const garden = h < 22 && w > 12 && rand() < 0.55
+      const nb = buildings.length, np = props.length, nbc = beacons.length
+      addBuilding(cx, (zA + zB) / 2, w, dd, h, true, garden)
+      // The one building that stood right in front of the window and hid the avenue from the opening / right-hand view
+      // (centred around x = -19, z = -27, a mid-rise with rooftop equipment). It is built first and then taken out again, so
+      // every random draw is unchanged and all the other buildings of the row stay exactly as they were.
+      const blocksWindowView = cx > -30 && cx < -8 && h > 12
+      if (blocksWindowView) { buildings.length = nb; props.length = np; beacons.length = nbc }
+      // The mid-rise block just right of the window (centre ~ x 7.6, z -21.3) rose to the sill and hid much of the avenue, its
+      // traffic and the skyline behind it. It is only made smaller: half as tall and ~30 % narrower, same centre, depth, style and
+      // colours. No random draws are involved, so no other building, tree or car moves. `h` is lowered as well so that its rooftop
+      // palm (same x/z, same height) keeps standing on the roof below instead of floating.
+      const frontBlock = buildings[nb]
+      if (!blocksWindowView && frontBlock && frontBlock.style === 4 && Math.abs(frontBlock.x - 7.6) < 1 && Math.abs(frontBlock.z + 21.3) < 1) {
+        frontBlock.h *= 0.5
+        frontBlock.w *= 0.7
+        h *= 0.5
+      }
+      if (garden) {
+        const n = low ? 1 : 1 + Math.floor(rand() * 3)
+        for (let i = 0; i < n; i++) {
+          trees.push({
+            x: cx + R(-w * 0.34, w * 0.34), z: (zA + zB) / 2 + R(-dd * 0.3, dd * 0.3), s: 1,
+            y: GROUND_Y + h, h: R(5, 8.5), tint: palmTint(),
+          })
+        }
+      }
+      x += w + (rand() < 0.4 ? R(5, 11) : R(0.8, 3))
     }
   }
 
@@ -339,6 +401,55 @@ export function generateCity(tier: CityTier): CityLayout {
     parked.push({ x: -37, z: nearZ, rot: 0, variant: 1, color: 1 })        // silver SUV, near kerb
     parked.push({ x: -16, z: nearZ, rot: 0, variant: 0, color: 3 })        // dark red sedan, near kerb
     parked.push({ x: -26, z: farZ, rot: Math.PI, variant: 0, color: 4 })   // metallic blue sedan, opposite kerb
+  }
+
+  /* ---------------------------------------------------------------- exterior art direction
+   * Everything below draws from its own PRNG (and is appended after the original layout), so no existing building, tree, lamp or car
+   * moves: it only restyles facades and adds a few palms and rooftop structures. */
+  const xrand = mulberry32(8128)
+  const XR = (a: number, b: number) => a + (b - a) * xrand()
+
+  // Hero palms. The window is ~19.5 m above the street and the sill hides everything below ~14-19 m above the pavement at these
+  // distances, so a palm is only recognisable if its trunk is lengthened until the crown stands inside the opening. x/z/top were
+  // solved from the three default views (right = start view, centre, left): each entry says which views it shows up in. The crown
+  // sits in the middle of the pane with the trunk climbing up into it, in front of (and below the roofs of) the skyline.
+  const hero = (x: number, z: number, top: number, crown: number, fuller: number, tint: [number, number, number]) =>
+    trees.push({ x, z, s: 1, h: crown, top, fuller, tint })
+  // Positions were solved from the projection of each palm through the window opening, so that every view shows two clearly
+  // separated crowns (about 0.2-0.3 and 0.7-0.8 of the way across the pane) rather than a cluster that hides the skyline.
+  hero(-7.0, -14.5, 4.6, 6.0, 1.18, [1.02, 1.12, 0.92])    // right (right pane, foreground) and centre (left pane)
+  hero(-18.5, -22.0, 7.0, 8.4, 1.12, [0.98, 1.1, 0.9])     // right (left pane)
+  hero(-4.5, -34.0, 9.4, 9.6, 1.1, [1.0, 1.1, 0.92])       // centre (right pane) and left (left pane)
+  hero(3.0, -31.0, 9.0, 9.2, 1.1, [1.0, 1.12, 0.9])        // left (right pane)
+
+  // Facade variety: neighbours in a row never share a facade style, glass towers get deep navy / charcoal walls, and some blocks
+  // are left mostly dark so lit windows read as individual rooms rather than a texture.
+  const STYLES_BY_HEIGHT = (h: number) =>
+    h > 70 ? [3, 7, 5, 1, 6, 4] : h > 40 ? [1, 5, 7, 4, 6, 2, 0] : h > 22 ? [0, 1, 2, 4, 5, 6, 7] : [0, 2, 4, 6, 1]
+  const GLASS_WALLS: [number, number, number][] = [[0.04, 0.055, 0.105], [0.07, 0.075, 0.09], [0.03, 0.05, 0.085], [0.09, 0.095, 0.115], [0.05, 0.07, 0.12]]
+  const GLASS_STYLES = [1, 3, 5, 7]
+  const rowKey = (b: BuildingData) => Math.round(b.z / 45)
+  const order = buildings.map((_, i) => i).sort((a, b) => rowKey(buildings[a]) - rowKey(buildings[b]) || buildings[a].x - buildings[b].x)
+  let prev: number[] = []
+  let prevRow = NaN
+  for (const i of order) {
+    const b = buildings[i]
+    if (Math.hypot(b.x, b.z) > 520) continue
+    if (rowKey(b) !== prevRow) { prev = []; prevRow = rowKey(b) }
+    if (prev.includes(b.style)) {
+      const allowed = STYLES_BY_HEIGHT(b.h).filter((st) => !prev.includes(st))
+      if (allowed.length) b.style = allowed[Math.floor(xrand() * allowed.length)]
+    }
+    if (GLASS_STYLES.includes(b.style) && xrand() < 0.6) b.tint = GLASS_WALLS[Math.floor(xrand() * GLASS_WALLS.length)]
+    if (xrand() < 0.1) b.litProb *= 0.35
+    prev = [b.style, ...prev].slice(0, 2)
+  }
+  // rooftop structures on the taller blocks: a crown screen, a plant penthouse and (on glass towers) a lit-looking recessed cap
+  for (const b of buildings) {
+    if (b.h < 26 || Math.hypot(b.x, b.z) > 420 || xrand() > 0.5) continue
+    const top = GROUND_Y + b.h
+    props.push({ x: b.x + XR(-b.w * 0.12, b.w * 0.12), y: top, z: b.z + XR(-b.d * 0.12, b.d * 0.12), w: b.w * XR(0.5, 0.78), h: XR(1.6, 3.6), d: b.d * XR(0.45, 0.7) })
+    if (xrand() < 0.5) props.push({ x: b.x + XR(-b.w * 0.25, b.w * 0.25), y: top, z: b.z + XR(-b.d * 0.25, b.d * 0.25), w: XR(2.4, 5), h: XR(4, 7.5), d: XR(2.4, 5) })
   }
 
   return { buildings, props, trees, shrubs, lamps, parked, beacons, parks }

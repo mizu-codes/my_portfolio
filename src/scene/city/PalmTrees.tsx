@@ -5,8 +5,9 @@ import {
   Quaternion, ShaderMaterial, Vector3, type BufferGeometry, type Mesh, type MeshStandardMaterial, type Texture,
 } from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { GROUND_Y, mulberry32 } from './cityConfig'
+import { GROUND_Y } from './cityConfig'
 import type { TreeData } from './cityLayout'
+import { placePalm } from './palmPlacement'
 import { GLSL_COMMON, MOON_DIR, cityUniforms } from './cityShaders'
 
 /**
@@ -17,14 +18,8 @@ import { GLSL_COMMON, MOON_DIR, cityUniforms } from './cityShaders'
  */
 const PALM_URL = `${import.meta.env.BASE_URL}models/palm_tree.glb`
 
-/** Height (m) of the model as exported (its bounding box is 0 .. 17.78 m on Y, with the trunk base at the origin). */
-const PALM_NATIVE_HEIGHT = 17.781
 /** Local height above which the fronds start; used to darken the centre of the crown. */
 const CROWN_START = 9
-/** Palm height (m) = layout tree scale x this, then varied per palm and capped near the window (see palmHeight). */
-const HEIGHT_PER_SCALE = 11.5
-/** Tallest a palm may become after its trunk has been lengthened (royal palms reach ~25 m; anything above looks unnatural). */
-const MAX_PALM_HEIGHT = 22
 
 export interface PalmAsset { geometry: BufferGeometry; map: Texture }
 export type PalmState = { status: 'loading' } | { status: 'ready'; asset: PalmAsset } | { status: 'failed' }
@@ -131,17 +126,40 @@ void main() {
   float dist = length(vWorld - cameraPosition);
   vec3 base = tex.rgb * mix(vec3(1.0), vInst, 0.6);
 
+  // Frond grade: a deep natural forest green (#315B35) instead of the earlier saturated lime. The atlas supplies the detail: each
+  // texel's brightness relative to the atlas' typical frond brightness scales the tint, so veins, leaf edges and the light/dark
+  // variation between individual fronds survive, and a little of the atlas' own hue is kept for frond-to-frond variation.
+  // The per-tree tint (aInst) shifts the tint slightly from tree to tree. The trunk keeps its bark colour.
+  // frond is 0 on the trunk and 1 across the canopy.
+  float frond = smoothstep(CROWN_START - 1.8, CROWN_START - 0.2, vLocal.y);
+  const vec3 LUMA = vec3(0.299, 0.587, 0.114);
+  const vec3 LEAF_TINT = vec3(0.192, 0.357, 0.208);          // #315B35 in display (sRGB) values
+  float lum = dot(base, LUMA);
+  float rel = clamp(lum / 0.27, 0.45, 1.55);                  // 0.27 = typical frond luminance of the atlas; capped so highlights stay deep
+  vec3 tgt = LEAF_TINT * mix(vec3(1.0), vInst, 0.6);
+  vec3 chromaTgt = tgt / max(dot(tgt, LUMA), 1e-3);
+  vec3 chromaTex = base / max(lum, 1e-3);
+  vec3 chroma = mix(chromaTgt, clamp(chromaTex, 0.5, 1.4), 0.18);
+  vec3 leaf = chroma * dot(tgt, LUMA) * rel;
+  base = mix(base, leaf, frond);
+
   // Same night lighting as the rest of the city: cool sky ambient + moonlight + warm street-lamp bounce that fades with height.
   float up = n.y * 0.5 + 0.5;
   float h = max(vWorld.y - GROUND, 0.0);
   vec3 light = vec3(0.34, 0.38, 0.62) * (0.4 + 0.6 * up);
   light += vec3(0.50, 0.58, 0.95) * max(dot(n, uMoonDir), 0.0) * 0.6;
   light += vec3(0.95, 0.62, 0.28) * (1.0 - up) * 1.5 * exp(-h / 10.0);
+  // Canopy: the street lamps and the lit facades below throw warm light up into the fronds (it does not fade with height the way
+  // the trunk's bounce does), and the blue glass towers behind add a faint cool rim on the edges that face away from the lamps.
+  float under = max(-n.y, 0.0);
+  light += vec3(1.0, 0.64, 0.30) * (0.22 + 0.78 * under) * 0.72 * frond;
+  vec3 V = normalize(cameraPosition - vWorld);
+  light += vec3(0.30, 0.48, 0.85) * pow(1.0 - clamp(dot(n, V), 0.0, 1.0), 2.0) * 0.30 * frond;
   // self-shadowing: the middle of the crown and the foot of the trunk sit in shade
   float crown = smoothstep(CROWN_START - 1.5, CROWN_START + 1.0, vLocal.y);
-  float ao = mix(1.0, mix(0.5, 1.0, smoothstep(0.4, 3.6, vLocal.x)), crown);
+  float ao = mix(1.0, mix(0.55, 1.0, smoothstep(0.4, 3.6, vLocal.x)), crown);
   ao *= mix(0.65, 1.0, smoothstep(0.0, 2.5, vLocal.y));
-  vec3 col = applyHaze(base * light * ao * 1.55, dist);
+  vec3 col = applyHaze(min(base * light * ao * 1.6, vec3(0.92)), dist);
   gl_FragColor = vec4(col, a);
 }`
 
@@ -168,19 +186,6 @@ void main() {
 /** Moonlight comes from the sky behind the city, so shadows are laid out on the pavement towards the room (away from the moon). */
 const SHADOW_DIR = new Vector3(-MOON_DIR.x, 0, -MOON_DIR.z).normalize()
 const SHADOW_YAW = Math.atan2(SHADOW_DIR.x, SHADOW_DIR.z)
-
-/**
- * Palm height in metres. Layout trees can carry an explicit height (`h`); otherwise it comes from the layout's tree size,
- * varied per tree. The old cap that kept palms low near the window is gone: the window is now well above the street, so
- * tall palms rise into view instead of blocking it.
- */
-function palmHeight(t: TreeData, rnd: () => number) {
-  if (t.h !== undefined) return t.h * (0.92 + rnd() * 0.16)
-  const h = t.s * HEIGHT_PER_SCALE * (0.82 + rnd() * 0.36)
-  const dist = Math.hypot(t.x, t.z + 3.2)
-  const cap = 8 + 8 * Math.min(Math.max((dist - 40) / 90, 0), 1)
-  return Math.min(h, cap)
-}
 
 export function PalmTrees({ asset, trees, low }: { asset: PalmAsset; trees: TreeData[]; low: boolean }) {
   const gl = useThree((s) => s.gl)
@@ -214,25 +219,17 @@ export function PalmTrees({ asset, trees, low }: { asset: PalmAsset; trees: Tree
     const sq = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), SHADOW_YAW)
 
     trees.forEach((t, i) => {
-      // all variation comes from a PRNG seeded by the tree's position, so the city layout itself is untouched and deterministic
-      const rnd = mulberry32(Math.floor(t.x * 131 + t.z * 977 + i * 7919))
-      const crownHeight = palmHeight(t, rnd)        // size of the palm as before: this still drives the canopy scale
-      const scale = crownHeight / PALM_NATIVE_HEIGHT
-      // Taller trunk only: the trunk grows by 60-120 % of the palm's own height (varied per tree), never beyond MAX_PALM_HEIGHT.
-      // The extra length is added to the trunk in the vertex shader, so fronds and canopy spread keep exactly the size they had.
-      const extraWorld = Math.min(crownHeight * (0.6 + rnd() * 0.6), Math.max(MAX_PALM_HEIGHT - crownHeight, 0))
-      extra[i] = extraWorld / scale
-      const height = crownHeight + extraWorld
-      const wide = scale * (0.92 + rnd() * 0.18)
-      e.set((rnd() - 0.5) * 0.07, rnd() * Math.PI * 2, (rnd() - 0.5) * 0.07) // up to ~2 degrees of lean, any heading
+      // all variation comes from a PRNG seeded by the tree's position (see palmPlacement.ts), so the city layout is untouched
+      const pl = placePalm(t, i)
+      extra[i] = pl.extra
+      e.set(pl.rx, pl.ry, pl.rz)
       q.setFromEuler(e)
-      const baseY = t.y ?? GROUND_Y
-      p.set(t.x + (rnd() - 0.5) * 0.6, baseY, t.z + (rnd() - 0.5) * 0.6)
-      mesh.setMatrixAt(i, m.compose(p, q, s.set(wide, scale, wide)))
+      p.set(pl.x, pl.y, pl.z)
+      mesh.setMatrixAt(i, m.compose(p, q, s.set(pl.wide, pl.scale, pl.wide)))
       tint.set(t.tint, i * 3)
 
-      const len = height * 0.5, wid = height * 0.17
-      p.set(p.x + SHADOW_DIR.x * len * 0.4, baseY + 0.05, p.z + SHADOW_DIR.z * len * 0.4)
+      const len = pl.height * 0.5, wid = pl.height * 0.17
+      p.set(p.x + SHADOW_DIR.x * len * 0.4, pl.y + 0.05, p.z + SHADOW_DIR.z * len * 0.4)
       shadow.setMatrixAt(i, m.compose(p, sq, s.set(wid, 1, len)))
     })
     mesh.count = shadow.count = trees.length

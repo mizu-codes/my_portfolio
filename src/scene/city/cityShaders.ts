@@ -32,17 +32,35 @@ float aa(float x, float w) { return clamp(x / w + 0.5, 0.0, 1.0); }
 float band(float x, float lo, float hi, float w) { return aa(x - lo, w) * aa(hi - x, w); }
 
 /** Night sky colour for an elevation in degrees: deep indigo overhead, purple-blue glow at the horizon. */
+
 vec3 skyColor(float e) {
-  vec3 zen = vec3(0.016, 0.032, 0.115);
-  vec3 mid = vec3(0.048, 0.092, 0.300);
-  vec3 low = vec3(0.180, 0.165, 0.460);
-  vec3 hor = vec3(0.400, 0.290, 0.560);
-  vec3 c = mix(hor, low, smoothstep(0.0, 7.0, e));
-  c = mix(c, mid, smoothstep(5.0, 20.0, e));
-  c = mix(c, zen, smoothstep(18.0, 60.0, e));
+  // Deep midnight blue overhead
+  vec3 zen = vec3(0.008, 0.016, 0.055);
+
+  // Rich midnight blue
+  vec3 mid = vec3(0.025, 0.050, 0.160);
+
+  // Blue-purple transition
+  vec3 low = vec3(0.075, 0.085, 0.250);
+
+  // Subtle purple horizon glow
+  vec3 hor = vec3(0.190, 0.135, 0.300);
+
+  vec3 c = mix(hor, low, smoothstep(0.0, 8.0, e));
+  c = mix(c, mid, smoothstep(7.0, 23.0, e));
+  c = mix(c, zen, smoothstep(20.0, 55.0, e));
+
   return c;
 }
-vec3 hazeColor() { return mix(skyColor(0.8), vec3(0.13, 0.12, 0.30), 0.45); }
+
+vec3 hazeColor() {
+  return mix(
+    skyColor(1.0),
+    vec3(0.075, 0.085, 0.180),
+    0.35
+  );
+}
+
 float hazeAmount(float dist) {
   float f = 1.0 - exp(-pow(dist / 520.0, 1.3));
   return max(f, smoothstep(900.0, 1400.0, dist));
