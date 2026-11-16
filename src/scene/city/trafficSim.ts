@@ -38,7 +38,7 @@ export function signalState(t: number): Signals {
   return { main: 'red', cross: 'red' }
 }
 
-const CAR_LEN = [4.4, 4.7, 11.2, 5.4]
+const CAR_LEN = [4.6, 4.76, 11.2, 5.3]
 
 export function createTraffic(tier: CityTier): Traffic {
   const rand = mulberry32(77)

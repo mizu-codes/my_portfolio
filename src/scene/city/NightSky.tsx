@@ -16,6 +16,24 @@ varying vec3 vDir;
 ${GLSL_COMMON}
 const float MOON_R = ${(MOON.radiusDeg * Math.PI / 180).toFixed(5)};
 
+// crater height field of the moon's disc (q in -1..1): smooth bowls with raised rims, two octaves, no hard cell edges
+float craterH(vec2 q) {
+  float hgt = 0.0;
+  for (int o = 0; o < 2; o++) {
+    float sc = o == 0 ? 5.0 : 11.0;
+    vec2 g = q * sc;
+    vec2 id = floor(g), fc = fract(g) - 0.5;
+    float hs = hash21(id + float(o) * 17.0);
+    vec2 jit = (vec2(hash21(id + 3.3 + float(o)), hash21(id + 8.1 + float(o))) - 0.5) * 0.4;
+    float r = length(fc - jit) / (0.14 + 0.2 * hs);
+    float has = smoothstep(0.4, 0.55, hs);
+    float bowl = -(1.0 - smoothstep(0.0, 1.0, r)) * 0.5;
+    float rim = smoothstep(0.7, 1.0, r) * (1.0 - smoothstep(1.0, 1.4, r)) * 0.35;
+    hgt += has * (bowl + rim) * (o == 0 ? 1.0 : 0.35);
+  }
+  return hgt;
+}
+
 void main() {
   vec3 dir = normalize(vDir);
   float e = degrees(asin(clamp(dir.y, -1.0, 1.0)));
@@ -49,22 +67,36 @@ void main() {
     col += vec3(0.8, 0.85, 1.0) * star * bright * smoothstep(5.0, 13.0, e);
   }
 
-  // moon: partially illuminated crescent with a soft halo
+  // moon: a lit sphere (not a flat cut-out): maria, craters with raised rims and the terminator all come from one height field
   float cosA = dot(dir, uMoonDir);
   float ang = acos(clamp(cosA, -1.0, 1.0));
-  col += vec3(0.46, 0.56, 1.0) * (0.17 * exp(-pow(ang / (MOON_R * 3.4), 2.0)) + 0.055 * exp(-ang / (MOON_R * 11.0)));
+  col += vec3(0.46, 0.56, 1.0) * (0.12 * exp(-pow(ang / (MOON_R * 2.8), 2.0)) + 0.04 * exp(-ang / (MOON_R * 9.0)));   // very faint atmospheric glow
   if (cosA > 0.0) {
     vec3 up = normalize(vec3(0.0, 1.0, 0.0) - uMoonDir * uMoonDir.y);
     vec3 right = normalize(cross(uMoonDir, up));
     vec3 p = dir / cosA - uMoonDir;
     vec2 q = vec2(dot(p, right), dot(p, up)) / MOON_R;
+    float rq = length(q);
     float w = max(fwidth(q.x), 1e-3) * 0.9;
-    float disc = 1.0 - smoothstep(1.0 - w, 1.0 + w, length(q));
-    float cut = 1.0 - smoothstep(0.93 - w, 0.93 + w, length(q - vec2(0.46, 0.2)));
-    float crescent = disc * (1.0 - cut);
-    float moonTex = 0.86 + 0.14 * vnoise(q * 5.0 + 3.0);
-    col = mix(col, vec3(0.93, 0.95, 1.0) * moonTex, crescent);
-    col = mix(col, col + vec3(0.04, 0.05, 0.09), disc * (1.0 - crescent) * 0.7); // faint earthshine on the dark limb
+    float disc = 1.0 - smoothstep(1.0 - w, 1.0 + w, rq);
+    if (disc > 0.0) {
+      vec3 nSph = vec3(q, sqrt(max(1.0 - rq * rq, 0.0)));                 // surface normal of the sphere facing us
+      // surface height: large dark maria + two octaves of craters (each cell may hold one crater with a bowl and a raised rim)
+      float maria = smoothstep(0.52, 0.66, vnoise(q * 2.1 + 5.0) * 0.7 + vnoise(q * 4.3 + 1.0) * 0.3);
+      float hgt = craterH(q);
+      // relief: slope of the height field (fixed-offset differences), so craters shade correctly against the sunlight
+      float e = 0.03;
+      vec2 grad = vec2(craterH(q + vec2(e, 0.0)) - craterH(q - vec2(e, 0.0)), craterH(q + vec2(0.0, e)) - craterH(q - vec2(0.0, e))) / (2.0 * e) * 0.035;
+      vec3 nn = normalize(nSph + vec3(-grad, 0.0));
+      // sunlight from the upper right and slightly behind: a waxing crescent, brightest at the limb, soft terminator
+      vec3 sun = normalize(vec3(0.8, 0.3, -0.22));
+      float lit = smoothstep(-0.04, 0.14, dot(nn, sun));
+      float albedo = mix(0.9, 0.52, maria) * (1.0 + hgt * 0.32) * (0.95 + 0.07 * vnoise(q * 14.0));
+      vec3 surf = vec3(0.96, 0.94, 0.88) * albedo * lit;
+      surf += (1.0 - lit) * (col * 0.6 + vec3(0.03, 0.04, 0.07) * (0.7 + 0.3 * albedo));   // dark side: faint earthshine over the sky
+      surf *= 1.0 - 0.18 * smoothstep(0.7, 1.0, rq) * lit;                             // slight limb darkening
+      col = mix(col, surf, disc);
+    }
   }
 
   if (e < 0.0) col = hazeColor();
@@ -72,7 +104,7 @@ void main() {
   gl_FragColor = vec4(col, 1.0);
 }`
 
-/** Procedural night sky: indigo gradient, purple-blue horizon glow, light-pollution tint, haze, a few stars and a crescent moon. */
+/** Procedural night sky: indigo gradient, purple-blue horizon glow, light-pollution tint, haze, a few stars and a lit 3D crescent moon with craters. */
 export function NightSky() {
   const mesh = useRef<Mesh>(null)
   const { geo, mat } = useMemo(() => ({

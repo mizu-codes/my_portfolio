@@ -14,10 +14,10 @@ export const EYE_Y = 1.77
 export const CITY_FAR = 1500
 
 export interface RoadType { lane: number; lanes: number; parking: number; walk: number }
-/** Four-lane avenue (two lanes each way) with parking lanes and wide pavements. */
-export const MAJOR: RoadType = { lane: 3.3, lanes: 2, parking: 2.3, walk: 4.0 }
+/** Four-lane, two-way avenue (two 3.9 m lanes each way, 15.6 m carriageway) with parking lanes and wide pavements. */
+export const MAJOR: RoadType = { lane: 3.9, lanes: 2, parking: 2.7, walk: 4.8 }
 /** Local street: one lane each way. */
-export const MINOR: RoadType = { lane: 3.3, lanes: 1, parking: 2.2, walk: 3.6 }
+export const MINOR: RoadType = { lane: 3.6, lanes: 1, parking: 2.4, walk: 4.0 }
 
 export const carriageHalf = (r: RoadType) => r.lane * r.lanes
 export const parkEdge = (r: RoadType) => carriageHalf(r) + r.parking
@@ -25,7 +25,7 @@ export const walkEdge = (r: RoadType) => parkEdge(r) + r.walk
 
 /** Avenues run along x. Index 0 is the major avenue closest to the window; the rest are local streets. */
 /** The avenue is ~44 m from the window: close enough to read cars and palm trunks from above, far enough to sit below the sill's view cone. */
-export const AVENUE_Z0 = -47
+export const AVENUE_Z0 = -49
 export const AVENUE_SPACING = 109
 export const avenueZ = (k: number) => AVENUE_Z0 - AVENUE_SPACING * k
 export const avenueType = (k: number) => (k === 0 ? MAJOR : MINOR)
@@ -40,7 +40,7 @@ export const CROSS_TYPE = MINOR
 export const NEAR_FIELD = { xMin: -470, xMax: 175, zMax: -14, zMin: -300 }
 
 /** The moon: azimuth is measured from straight ahead (-z) towards the left (-x) as seen from the room. */
-export const MOON = { azDeg: 28, elDeg: 8.3, radiusDeg: 1.35 }
+export const MOON = { azDeg: 28, elDeg: 8.3, radiusDeg: 1.2 }
 
 export const DEG = Math.PI / 180
 

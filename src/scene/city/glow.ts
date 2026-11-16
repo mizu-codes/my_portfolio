@@ -7,7 +7,7 @@ export const glowPx = new Uniform(800)
 const vertex = /* glsl */ `
 attribute vec3 aColor;
 attribute float aSize;
-attribute vec2 aBlink; // x = period in seconds (0 = steady), y = phase
+attribute vec2 aBlink; // x = period in seconds (0 = steady, negative = aviation flash with period |x|), y = phase
 varying vec3 vColor;
 varying float vInt;
 varying float vFog;
@@ -20,7 +20,13 @@ void main() {
   float s = aSize * uPx * 0.5 * projectionMatrix[1][1] / dist;
   gl_PointSize = clamp(s, 2.0, 90.0);
   float inten = 1.0;
-  if (aBlink.x > 0.0) {
+  if (aBlink.x < 0.0) {
+    // aviation warning light: lights up quickly, fades out fast, then stays dark for most of the period before the next flash
+    float t = fract(uTime / -aBlink.x + aBlink.y / 6.2831853);
+    float ramp = smoothstep(0.0, 0.05, t);
+    float decay = exp(-max(t - 0.05, 0.0) * 9.0);
+    inten = 0.02 + 0.98 * ramp * decay;
+  } else if (aBlink.x > 0.0) {
     float p = 0.5 + 0.5 * sin(uTime * 6.2831853 / aBlink.x + aBlink.y);
     inten = 0.06 + 0.94 * pow(p, 5.0);
   }

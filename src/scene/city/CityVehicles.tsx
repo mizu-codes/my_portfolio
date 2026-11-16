@@ -11,9 +11,9 @@ import { makeGlowPoints, type GlowSpec } from './glow'
 import { prefersReducedMotion } from '../motion'
 import { makeSolidMaterial } from './solidMaterial'
 import { createTraffic, signalState, stepTraffic, type Lamp } from './trafficSim'
+import { sedanModel, suvModel, vanModel } from './carModels'
 
 const TINT = 1, EMIT = 2, FIXED = 0
-const glass: Col = [0.03, 0.042, 0.075, FIXED]
 const tyre: Col = [0.018, 0.018, 0.022, FIXED]
 const body: Col = [1, 1, 1, TINT]
 const headC: Col = [1.0, 0.95, 0.84, EMIT]
@@ -25,26 +25,6 @@ const PALETTE: [number, number, number][] = [
 const BUS_PALETTE: [number, number, number][] = [[0.75, 0.1, 0.1], [0.12, 0.3, 0.6], [0.8, 0.82, 0.86]]
 const VAN_PALETTE: [number, number, number][] = [[0.86, 0.87, 0.9], [0.86, 0.87, 0.9], [0.14, 0.26, 0.5], [0.55, 0.57, 0.63], [0.9, 0.62, 0.05]]
 
-function sedan() {
-  return mergeAll([
-    boxAt(4.3, 0.55, 1.78, 0, 0.55, 0, body),
-    boxAt(2.2, 0.5, 1.62, -0.2, 1.07, 0, glass),
-    boxAt(1.9, 0.07, 1.5, -0.2, 1.345, 0, body),
-    ...[[1.35, 0.85], [1.35, -0.85], [-1.35, 0.85], [-1.35, -0.85]].map(([x, z]) => boxAt(0.72, 0.62, 0.22, x, 0.31, z, tyre)),
-    boxAt(0.06, 0.13, 0.42, 2.17, 0.68, 0.6, headC), boxAt(0.06, 0.13, 0.42, 2.17, 0.68, -0.6, headC),
-    boxAt(0.06, 0.14, 0.42, -2.17, 0.72, 0.6, tailC), boxAt(0.06, 0.14, 0.42, -2.17, 0.72, -0.6, tailC),
-  ])
-}
-function suv() {
-  return mergeAll([
-    boxAt(4.65, 0.72, 1.9, 0, 0.74, 0, body),
-    boxAt(3.1, 0.62, 1.74, -0.35, 1.41, 0, glass),
-    boxAt(2.9, 0.08, 1.6, -0.35, 1.76, 0, body),
-    ...[[1.45, 0.9], [1.45, -0.9], [-1.4, 0.9], [-1.4, -0.9]].map(([x, z]) => boxAt(0.82, 0.74, 0.26, x, 0.37, z, tyre)),
-    boxAt(0.06, 0.15, 0.5, 2.3, 0.88, 0.65, headC), boxAt(0.06, 0.15, 0.5, 2.3, 0.88, -0.65, headC),
-    boxAt(0.06, 0.2, 0.5, -2.3, 0.95, 0.65, tailC), boxAt(0.06, 0.2, 0.5, -2.3, 0.95, -0.65, tailC),
-  ])
-}
 function bus() {
   const parts: BufferGeometry[] = [
     boxAt(11.1, 1.0, 2.5, 0, 0.9, 0, body),
@@ -58,19 +38,6 @@ function bus() {
   return mergeAll(parts)
 }
 
-function van() {
-  return mergeAll([
-    boxAt(5.4, 0.62, 2.0, 0, 0.7, 0, body),                  // lower body
-    boxAt(1.35, 0.78, 1.9, 1.95, 1.4, 0, glass),             // cab: windscreen and side glass
-    boxAt(1.3, 0.07, 1.84, 1.92, 1.82, 0, body),             // cab roof
-    boxAt(3.95, 1.25, 1.96, -0.65, 1.55, 0, body),           // tall cargo box
-    boxAt(3.95, 0.08, 1.7, -0.65, 2.2, 0, [0.9, 0.9, 0.93, TINT]), // roof panel, reads clearly from above
-    ...[[1.7, 0.9], [1.7, -0.9], [-1.55, 0.9], [-1.55, -0.9]].map(([x, z]) => boxAt(0.8, 0.7, 0.26, x, 0.35, z, tyre)),
-    boxAt(0.06, 0.15, 0.5, 2.7, 0.8, 0.7, headC), boxAt(0.06, 0.15, 0.5, 2.7, 0.8, -0.7, headC),
-    boxAt(0.06, 0.2, 0.46, -2.7, 0.9, 0.7, tailC), boxAt(0.06, 0.2, 0.46, -2.7, 0.9, -0.7, tailC),
-  ])
-}
-
 const beamVertex = /* glsl */ `
 varying vec2 vUv;
 varying float vDist;
@@ -80,14 +47,32 @@ void main() {
   vDist = length(w.xyz - cameraPosition);
   gl_Position = projectionMatrix * viewMatrix * w;
 }`
+/**
+ * Headlight pool on the road: two soft lobes (one per lamp) that start narrow at the bumper, widen and fade with distance,
+ * plus a faint shared fill. Warm white, additive, no hard edges, so it reads as light falling on asphalt, not as a solid cone.
+ * vUv.x runs from the car (0) to the far end (1); vUv.y across the beam.
+ */
 const beamFragment = /* glsl */ `
 varying vec2 vUv;
 varying float vDist;
 void main() {
-  float along = pow(max(1.0 - vUv.x, 0.0), 1.6);
-  float across = pow(max(1.0 - abs(vUv.y - 0.5) * 2.0, 0.0), 1.3);
-  float a = along * across * 0.26 * (1.0 - smoothstep(250.0, 700.0, vDist));
-  gl_FragColor = vec4(1.0, 0.94, 0.78, a);
+  float x = clamp(vUv.x, 0.0, 1.0);                  // 0 at the car, 1 at the far end
+  float y = (vUv.y - 0.5) * 2.0;
+  float w = 0.16 + 0.34 * x;                         // lobe width grows with distance
+  float lobe = exp(-pow((abs(y) - 0.34) / w, 2.0));
+  float fill = exp(-pow(y / (0.45 + 0.5 * x), 2.0));
+  float along = exp(-x * 3.4) * smoothstep(0.0, 0.04, x) * (1.0 - smoothstep(0.55, 1.0, x));
+  float a = (lobe * 0.75 + fill * 0.35) * along * 0.55 * (1.0 - smoothstep(250.0, 700.0, vDist));
+  gl_FragColor = vec4(1.0, 0.91, 0.72, a);
+}`
+const tailFragment = /* glsl */ `
+varying vec2 vUv;
+varying float vDist;
+void main() {
+  float x = clamp(vUv.x, 0.0, 1.0);                  // 0 at the far end behind the car, 1 at the bumper
+  float y = (vUv.y - 0.5) * 2.0;
+  float a = exp(-pow((1.0 - x) * 2.6, 1.5)) * exp(-y * y * 2.2) * 0.26 * (1.0 - smoothstep(200.0, 500.0, vDist));
+  gl_FragColor = vec4(1.0, 0.1, 0.06, a);
 }`
 
 const lampColor = (l: Lamp): [number, number, number] => (l === 'green' ? [0.2, 1.0, 0.42] : l === 'amber' ? [1.0, 0.68, 0.1] : [1.0, 0.1, 0.07])
@@ -100,7 +85,7 @@ const lampColor = (l: Lamp): [number, number, number] => (l === 'green' ? [0.2, 
 function buildSystem(parked: ParkedData[], tier: CityTier) {
     const sim = createTraffic(tier)
     const mat = makeSolidMaterial(GROUND_Y)
-    const geos = [sedan(), suv(), bus(), van()]
+    const geos = [sedanModel(), suvModel(), bus(), vanModel()]
 
     // moving cars: one instanced mesh per body style
     const counts = [0, 0, 0, 0]
@@ -120,7 +105,7 @@ function buildSystem(parked: ParkedData[], tier: CityTier) {
     })
 
     // parked cars (static)
-    const parkedGeos = [sedan(), suv()]
+    const parkedGeos = [sedanModel(), suvModel()]
     const pk = parkedGeos.map((g, v) => {
       const list = parked.filter((p) => p.variant === v)
       const m = new InstancedMesh(g, mat, Math.max(list.length, 1))
@@ -146,6 +131,11 @@ function buildSystem(parked: ParkedData[], tier: CityTier) {
     })
     const beams = new InstancedMesh(beamGeo, beamMat, Math.max(sim.cars.length, 1))
     beams.count = sim.cars.length; beams.frustumCulled = false; beams.renderOrder = 6
+    // faint red spill on the road behind each car (shares the plane geometry, one more draw call)
+    const tailMat = beamMat.clone()
+    tailMat.fragmentShader = tailFragment
+    const tails = new InstancedMesh(beamGeo, tailMat, Math.max(sim.cars.length, 1))
+    tails.count = sim.cars.length; tails.frustumCulled = false; tails.renderOrder = 6
 
     // glow lights: 4 per car (2 head + 2 tail), updated every frame
     const carLights: GlowSpec[] = []
@@ -175,31 +165,37 @@ function buildSystem(parked: ParkedData[], tier: CityTier) {
     const sigGlow = makeGlowPoints(corners.map((c) => ({ x: c.x, y: GROUND_Y + SIG_H + 0.1, z: c.z, r: 1, g: 0.1, b: 0.07, size: 1.9 })), true)
 
     const group = new Object3D()
-    ;[...meshes, ...pk, beams, sigPoles, carGlow, sigGlow].forEach((o) => group.add(o))
-    return { sim, mat, geos, parkedGeos, meshes, pk, beams, beamGeo, beamMat, carGlow, sigGlow, sigPoles, sigGeo, corners, slot, group, dummy: new Object3D() }
+    ;[...meshes, ...pk, beams, tails, sigPoles, carGlow, sigGlow].forEach((o) => group.add(o))
+    return { sim, mat, geos, parkedGeos, meshes, pk, beams, tails, tailMat, beamGeo, beamMat, carGlow, sigGlow, sigPoles, sigGeo, corners, slot, group, dummy: new Object3D() }
 }
 type System = ReturnType<typeof buildSystem>
 
 function writeFrame(sys: System, dtStep: number, t: number) {
-  const { sim, dummy, meshes, beams, carGlow, sigGlow, corners, slot } = sys
+  const { sim, dummy, meshes, beams, tails, carGlow, sigGlow, corners, slot } = sys
   const sig = signalState(t)
   if (dtStep > 0) stepTraffic(sim, dtStep, sig)
   const cp = carGlow.geometry.getAttribute('position') as BufferAttribute
   const cs = carGlow.geometry.getAttribute('aSize') as BufferAttribute
   sim.cars.forEach((c, i) => {
     const r = sim.routes[c.route]
-    const x = r.ox + r.dx * c.s, z = r.oz + r.dz * c.s
+    // gentle, natural drive: the car wanders a few centimetres within its lane and pitches slightly under acceleration / braking
+    const wob = c.v > 0.5 ? Math.sin(t * 0.33 + i * 1.7) * 0.11 : 0
+    const x = r.ox + r.dx * c.s - r.dz * wob, z = r.oz + r.dz * c.s + r.dx * wob
     const yaw = Math.atan2(-r.dz, r.dx)
-    dummy.position.set(x, GROUND_Y, z); dummy.rotation.set(0, yaw, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix()
+    dummy.position.set(x, GROUND_Y, z); dummy.rotation.set(0, yaw, c.accel * 0.006); dummy.scale.set(1, 1, 1); dummy.updateMatrix()
     meshes[c.variant].setMatrixAt(slot[i], dummy.matrix)
-    // beam in front of the car
-    dummy.position.set(x + r.dx * (c.len / 2 + 5.5), GROUND_Y + 0.05, z + r.dz * (c.len / 2 + 5.5))
-    dummy.scale.set(11, 1, 3.4); dummy.updateMatrix()
+    // headlight pool in front of the car, red spill behind it
+    dummy.rotation.set(0, yaw, 0)
+    dummy.position.set(x + r.dx * (c.len / 2 + 7.5), GROUND_Y + 0.05, z + r.dz * (c.len / 2 + 7.5))
+    dummy.scale.set(15, 1, 6.5); dummy.updateMatrix()
     beams.setMatrixAt(i, dummy.matrix)
+    dummy.position.set(x - r.dx * (c.len / 2 + 1.6), GROUND_Y + 0.05, z - r.dz * (c.len / 2 + 1.6))
+    dummy.scale.set(4.2, 1, 3.2); dummy.updateMatrix()
+    tails.setMatrixAt(i, dummy.matrix)
     // lights
     const hl = c.len / 2 - 0.12, tl = c.len / 2 - 0.08
-    const hy = GROUND_Y + (c.variant === 2 ? 0.8 : 0.7), ty = GROUND_Y + (c.variant === 2 ? 0.9 : 0.75)
-    const lat = c.variant === 2 ? 0.8 : 0.62
+    const hy = GROUND_Y + [0.7, 0.88, 0.8, 0.82][c.variant], ty = GROUND_Y + [0.78, 0.92, 0.9, 1.0][c.variant]
+    const lat = [0.6, 0.64, 0.8, 0.68][c.variant]
     const px = -r.dz, pz = r.dx // lateral axis
     const base = i * 4
     cp.setXYZ(base, x + r.dx * hl + px * lat, hy, z + r.dz * hl + pz * lat)
@@ -211,6 +207,7 @@ function writeFrame(sys: System, dtStep: number, t: number) {
   })
   meshes.forEach((m) => { m.instanceMatrix.needsUpdate = true })
   beams.instanceMatrix.needsUpdate = true
+  tails.instanceMatrix.needsUpdate = true
   cp.needsUpdate = true; cs.needsUpdate = true
   // signal heads
   const sc = sigGlow.geometry.getAttribute('aColor') as BufferAttribute
@@ -236,7 +233,7 @@ export function CityVehicles({ parked, tier }: { parked: ParkedData[]; tier: Cit
   useEffect(() => () => {
     sys.mat.dispose(); sys.geos.forEach((g) => g.dispose()); sys.parkedGeos.forEach((g) => g.dispose())
     sys.meshes.forEach((m) => m.dispose()); sys.pk.forEach((m) => m.dispose())
-    sys.beamGeo.dispose(); sys.beamMat.dispose(); sys.beams.dispose()
+    sys.beamGeo.dispose(); sys.beamMat.dispose(); sys.beams.dispose(); sys.tailMat.dispose(); sys.tails.dispose()
     sys.carGlow.geometry.dispose(); (sys.carGlow.material as ShaderMaterial).dispose()
     sys.sigGlow.geometry.dispose(); (sys.sigGlow.material as ShaderMaterial).dispose()
     sys.sigGeo.dispose(); sys.sigPoles.dispose()

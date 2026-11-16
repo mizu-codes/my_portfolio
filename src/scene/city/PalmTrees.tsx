@@ -23,6 +23,8 @@ const PALM_NATIVE_HEIGHT = 17.781
 const CROWN_START = 9
 /** Palm height (m) = layout tree scale x this, then varied per palm and capped near the window (see palmHeight). */
 const HEIGHT_PER_SCALE = 11.5
+/** Tallest a palm may become after its trunk has been lengthened (royal palms reach ~25 m; anything above looks unnatural). */
+const MAX_PALM_HEIGHT = 22
 
 export interface PalmAsset { geometry: BufferGeometry; map: Texture }
 export type PalmState = { status: 'loading' } | { status: 'ready'; asset: PalmAsset } | { status: 'failed' }
@@ -82,8 +84,12 @@ function shrunk(src: Texture, size: number): Texture {
   return t
 }
 
+/** Local height (m, native units) where the trunk ends and the crown starts; the model's trunk is a thin column below this. */
+const TRUNK_TOP = 8.0
+
 const vertex = /* glsl */ `
 attribute vec3 aInst;
+attribute float aExtra; // metres (native model units) added to the trunk only
 varying vec2 vUv;
 varying vec3 vInst;
 varying vec3 vN;
@@ -93,7 +99,12 @@ void main() {
   vUv = uv; vInst = aInst;
   vLocal = vec2(length(position.xz), position.y);
   mat4 m = instanceMatrix;
-  vec4 w = modelMatrix * m * vec4(position, 1.0);
+  // Taller trunk, same crown: the trunk section is stretched along its own axis (so its bark texture is kept, just elongated)
+  // and everything above it, the whole canopy, is simply lifted. Fronds are not scaled at all.
+  vec3 pos = position;
+  if (pos.y < TRUNK_TOP) pos.y *= (TRUNK_TOP + aExtra) / TRUNK_TOP;
+  else pos.y += aExtra;
+  vec4 w = modelMatrix * m * vec4(pos, 1.0);
   vWorld = w.xyz;
   vN = normalize(mat3(modelMatrix) * mat3(m) * normal);
   gl_Position = projectionMatrix * viewMatrix * w;
@@ -167,7 +178,7 @@ function palmHeight(t: TreeData, rnd: () => number) {
   if (t.h !== undefined) return t.h * (0.92 + rnd() * 0.16)
   const h = t.s * HEIGHT_PER_SCALE * (0.82 + rnd() * 0.36)
   const dist = Math.hypot(t.x, t.z + 3.2)
-  const cap = 10 + 8 * Math.min(Math.max((dist - 40) / 90, 0), 1)
+  const cap = 8 + 8 * Math.min(Math.max((dist - 40) / 90, 0), 1)
   return Math.min(h, cap)
 }
 
@@ -182,7 +193,7 @@ export function PalmTrees({ asset, trees, low }: { asset: PalmAsset; trees: Tree
 
     const mat = new ShaderMaterial({
       uniforms: { uTime: cityUniforms.uTime, uMoonDir: cityUniforms.uMoonDir, uMap: { value: map }, uA2C: { value: msaa ? 1 : 0 } },
-      vertexShader: vertex,
+      vertexShader: vertex.replace(/TRUNK_TOP/g, TRUNK_TOP.toFixed(2)),
       fragmentShader: fragment.replace('GROUND_Y', GROUND_Y.toFixed(3)).replace(/CROWN_START/g, CROWN_START.toFixed(1)),
       side: DoubleSide,
       alphaToCoverage: msaa,
@@ -191,6 +202,7 @@ export function PalmTrees({ asset, trees, low }: { asset: PalmAsset; trees: Tree
     const n = Math.max(trees.length, 1)
     const mesh = new InstancedMesh(asset.geometry, mat, n)
     const tint = new Float32Array(n * 3).fill(1)
+    const extra = new Float32Array(n)
     const m = new Matrix4(), q = new Quaternion(), e = new Euler(0, 0, 0, 'YXZ'), p = new Vector3(), s = new Vector3()
 
     const shadowGeo = new PlaneGeometry(1, 1).rotateX(-Math.PI / 2)
@@ -204,8 +216,13 @@ export function PalmTrees({ asset, trees, low }: { asset: PalmAsset; trees: Tree
     trees.forEach((t, i) => {
       // all variation comes from a PRNG seeded by the tree's position, so the city layout itself is untouched and deterministic
       const rnd = mulberry32(Math.floor(t.x * 131 + t.z * 977 + i * 7919))
-      const height = palmHeight(t, rnd)
-      const scale = height / PALM_NATIVE_HEIGHT
+      const crownHeight = palmHeight(t, rnd)        // size of the palm as before: this still drives the canopy scale
+      const scale = crownHeight / PALM_NATIVE_HEIGHT
+      // Taller trunk only: the trunk grows by 60-120 % of the palm's own height (varied per tree), never beyond MAX_PALM_HEIGHT.
+      // The extra length is added to the trunk in the vertex shader, so fronds and canopy spread keep exactly the size they had.
+      const extraWorld = Math.min(crownHeight * (0.6 + rnd() * 0.6), Math.max(MAX_PALM_HEIGHT - crownHeight, 0))
+      extra[i] = extraWorld / scale
+      const height = crownHeight + extraWorld
       const wide = scale * (0.92 + rnd() * 0.18)
       e.set((rnd() - 0.5) * 0.07, rnd() * Math.PI * 2, (rnd() - 0.5) * 0.07) // up to ~2 degrees of lean, any heading
       q.setFromEuler(e)
@@ -220,6 +237,7 @@ export function PalmTrees({ asset, trees, low }: { asset: PalmAsset; trees: Tree
     })
     mesh.count = shadow.count = trees.length
     mesh.geometry.setAttribute('aInst', new InstancedBufferAttribute(tint, 3))
+    mesh.geometry.setAttribute('aExtra', new InstancedBufferAttribute(extra, 1))
     mesh.frustumCulled = false
     shadow.frustumCulled = false
     return { map, mat, mesh, shadowGeo, shadowMat, shadow, ownsMap: map !== asset.map }

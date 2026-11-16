@@ -71,35 +71,59 @@ void main() {
 
   float faceId = n.x > 0.5 ? 1.0 : (n.x < -0.5 ? 2.0 : (n.z > 0.5 ? 3.0 : 4.0));
   float u = abs(n.x) > 0.5 ? (vLocal.z + 0.5) * vDims.z : (vLocal.x + 0.5) * vDims.x;
+  int st = int(style + 0.5);
 
-  // facade module per style: x/y module size, window size, sill height, windows per apartment
+  // Every building has its own module, window proportions and rhythm, derived from its seed, so no two share a facade.
+  float hA = hash11(seed * 1.371 + 0.3), hB = hash11(seed * 2.713 + 1.1), hC = hash11(seed * 5.171 + 2.9);
+
   vec2 mod2; float winW, winH, sill, apt = 1.0;
-  if (style < 0.5)      { mod2 = vec2(3.4, 3.1); winW = 1.8; winH = 1.55; sill = 0.85; apt = 2.0; }
-  else if (style < 1.5) { mod2 = vec2(1.6, 3.9); winW = 1.5; winH = 2.45; sill = 0.95; }
-  else if (style < 2.5) { mod2 = vec2(6.0, 3.6); winW = 5.3; winH = 1.6;  sill = 0.95; }
-  else                  { mod2 = vec2(2.0, 4.2); winW = 1.6; winH = 3.0;  sill = 0.6; }
+  float reflK = 0.14;      // how mirror-like the unlit glass is
+  float concrete = 0.0;    // 1 = solid concrete panel, 2 = metal cladding (st 6 only)
+  float uu = u;
+  bool balcony = false;
+  if (st == 0)      { mod2 = vec2(2.8 + 1.2 * hA, 3.0 + 0.3 * hB); winW = mod2.x * (0.42 + 0.2 * hC); winH = 1.45 + 0.2 * hB; sill = 0.85; apt = 2.0; }
+  else if (st == 1) { mod2 = vec2(1.4 + 0.5 * hA, 3.6 + 0.5 * hB); winW = mod2.x * 0.9; winH = mod2.y * 0.62; sill = mod2.y * 0.24; reflK = 0.3; }
+  else if (st == 2) { mod2 = vec2(4.8 + 2.4 * hA, 3.4 + 0.5 * hB); winW = mod2.x * 0.9; winH = 1.3 + 0.5 * hC; sill = 0.95; }
+  else if (st == 3) { mod2 = vec2(1.9 + 0.5 * hA, 4.0 + 0.4 * hB); winW = mod2.x * 0.8; winH = mod2.y * 0.72; sill = 0.6; reflK = 0.3; }
+  else if (st == 4) { mod2 = vec2(3.2 + 1.6 * hA, 3.05 + 0.2 * hB); winW = mod2.x * 0.58; winH = 2.15; sill = 0.4; balcony = true; }
+  else if (st == 5) { mod2 = vec2(0.85 + 0.45 * hA, 3.5 + 0.3 * hB); winW = mod2.x * 0.74; winH = mod2.y - 1.3; sill = 0.45; reflK = 0.34; }
+  else if (st == 6) {
+    float segW = 7.0 + 6.0 * hA;
+    float seg = floor(u / segW);
+    float sh = hash21(vec2(seg, seed + 9.0));
+    uu = u - seg * segW;
+    if (sh < 0.38)      { mod2 = vec2(1.5, 3.5); winW = 1.35; winH = 2.5; sill = 0.5; reflK = 0.3; }   // glass bay
+    else if (sh < 0.78) { mod2 = vec2(2.6, 3.2); winW = 1.1; winH = 1.25; sill = 1.0; concrete = 1.0; } // punched concrete
+    else                { mod2 = vec2(2.6, 3.2); winW = 0.0; winH = 0.0; sill = 0.0; concrete = 2.0; }  // metal cladding
+  }
+  else              { mod2 = vec2(2.0 + 1.0 * hA, 3.5 + 0.3 * hB); winW = mod2.x * 0.95; winH = mod2.y - 0.4; sill = 0.2; reflK = 0.6; }
 
-  vec2 cuv = vec2(u / mod2.x, v / mod2.y);
+  vec2 cuv = vec2(uu / mod2.x, v / mod2.y);
   vec2 cell = floor(cuv);
   vec2 f = fract(cuv);
   vec2 fw = max(fwidth(cuv), vec2(1e-4));
+  float lodK = smoothstep(0.2, 0.7, max(fw.x, fw.y));
 
-  bool shop = cell.y < 0.5 && style < 2.5;
-  if (shop) { winW = mod2.x * 0.84; winH = mod2.y - 0.9; sill = 0.35; }
+  bool shop = cell.y < 0.5 && st != 3 && st != 5 && st != 7;
+  if (shop) { winW = mod2.x * 0.84; winH = mod2.y - 0.9; sill = 0.35; concrete = 0.0; }
   float wrx = winW / mod2.x;
   float mx = band(f.x, 0.5 - wrx * 0.5, 0.5 + wrx * 0.5, fw.x);
   float my = band(f.y, sill / mod2.y, (sill + winH) / mod2.y, fw.y);
-  float win = mx * my;
-  if (style < 0.5 && !shop) win *= 1.0 - 0.85 * band(f.x, 0.5 - 0.04 / mod2.x, 0.5 + 0.04 / mod2.x, fw.x);
+  float win = (winW > 0.0 || shop) ? mx * my : 0.0;
+  if (st == 0 && !shop) win *= 1.0 - 0.85 * band(f.x, 0.5 - 0.04 / mod2.x, 0.5 + 0.04 / mod2.x, fw.x);   // window mullion
+  if (st == 7) win *= 1.0 - 0.55 * (1.0 - aa(min(f.x, 1.0 - f.x) - 0.03, fw.x));                          // thin curtain-wall mullions
 
-  // which windows are lit: homes by apartment, offices by whole floors (cleaning crews, late shifts)
+  // which windows are lit: homes by apartment, offices by whole floors, vertical-fin towers in vertical runs
   vec2 aptCell = vec2(floor(cell.x / apt), cell.y);
   float hFloor = hash21(vec2(cell.y, seed + faceId * 17.3));
   float hCell = hash21(aptCell + seed * 7.77 + faceId * 3.1);
   float lit;
   if (shop) lit = step(hCell, 0.78);
-  else if (style < 0.5) lit = step(hCell, litP * (0.45 + 1.1 * hFloor));
-  else {
+  else if (st == 0 || st == 4 || st == 6) lit = step(hCell, litP * (0.45 + 1.1 * hFloor));
+  else if (st == 5) {
+    float run = floor(cell.y / (2.0 + floor(hA * 4.0)));
+    lit = step(hash21(vec2(cell.x, run + seed * 3.3 + faceId)), litP * 1.15);
+  } else {
     float floorOn = step(hFloor, litP * 1.1);
     lit = floorOn > 0.5 ? step(hCell, 0.94) : step(hCell, 0.04);
   }
@@ -117,16 +141,32 @@ void main() {
   float inner = mix(0.72, 1.0, smoothstep(0.0, 0.7, f.y));
   vec3 emit = lc * bright * inner * 1.12;
 
+  // balcony slabs and railings (apartment blocks): a lit room seen behind a railing, slabs catching the light
+  float slabLine = 0.0;
+  if (balcony && !shop) {
+    float door = band(f.x, 0.5 - (wrx * 0.5 + 0.1), 0.5 + (wrx * 0.5 + 0.1), fw.x);
+    float railM = door * band(f.y, 0.07, 0.07 + 1.0 / mod2.y, fw.y);
+    float bars = 0.55 + 0.45 * sin(uu * 37.7) ;
+    emit *= 1.0 - 0.6 * railM * mix(bars, 0.6, lodK);
+    slabLine = band(f.y, -0.01, 0.07, fw.y) * door;
+  }
+
   // dry wall: moonlit on one side, warmed by street light near the ground, slab lines between floors
   vec3 wallLit = wall * (0.5 + 0.8 * facing);
   wallLit += vec3(0.20, 0.11, 0.05) * exp(-max(v, 0.0) / 12.0) * 0.55;
-  if (style < 0.5 || (style > 1.5 && style < 2.5)) wallLit *= 1.0 + 0.35 * band(f.y, -0.03, 0.07, fw.y);
-  if (style > 2.5) { float edgeD = min(f.x, 1.0 - f.x); wallLit *= 1.0 - 0.4 * (1.0 - aa(edgeD - 0.06, fw.x)); } // pilasters
+  if (st == 0 || st == 2) wallLit *= 1.0 + 0.35 * band(f.y, -0.03, 0.07, fw.y);
+  if (st == 1 || st == 5 || st == 7) wallLit *= 1.0 + 0.25 * band(f.y, -0.02, 0.05, fw.y);
+  if (st == 3) { float edgeD = min(f.x, 1.0 - f.x); wallLit *= 1.0 - 0.4 * (1.0 - aa(edgeD - 0.06, fw.x)); } // pilasters
+  if (slabLine > 0.0) wallLit = mix(wallLit, wall * 1.9 + 0.03, slabLine * (1.0 - lodK));
+  if (concrete > 0.5 && concrete < 1.5) wallLit *= 0.88 + 0.3 * vnoise(vec2(uu * 1.1, v * 0.8) + seed);                // weathered concrete panels
+  if (concrete > 1.5) wallLit = wallLit * (0.7 + 0.5 * step(0.5, fract(uu * 1.4))) + vec3(0.02, 0.025, 0.035);          // standing-seam metal
   wallLit *= 1.0 + 0.5 * band(v, height - 0.5, height, fwidth(v));       // parapet edge catches light
 
-  // unlit glass: darker, with a faint reflection of the sky
-  bool glassy = style > 0.5 && style < 1.5 || style > 2.5;
-  vec3 glass = vec3(0.022, 0.034, 0.080) + skyColor(7.0 + v * 0.08) * (glassy ? 0.30 : 0.14);
+  // unlit glass: darker, with the sky reflected in it; curtain walls also carry a diagonal reflection and a warm city glow
+  vec3 glass = vec3(0.022, 0.034, 0.080) + skyColor(7.0 + v * 0.08) * reflK;
+  float streak = smoothstep(0.55, 1.0, sin((uu * 0.9 + v * 0.45) * 0.35 + hA * 6.0));
+  glass += vec3(0.11, 0.13, 0.24) * streak * reflK * 0.9 * (1.0 - lodK);
+  glass += vec3(0.10, 0.05, 0.02) * exp(-max(v, 0.0) / 30.0) * reflK;
   vec3 base = mix(wallLit, glass, win);
   vec3 emitC = emit * win * lit;
 
@@ -146,10 +186,9 @@ void main() {
     emitC += sc * on * chase * pulse * 1.15;
   }
   // tower crown: soft cool up-lighting
-  if (style > 2.5) emitC += vec3(0.20, 0.30, 0.55) * 0.26 * smoothstep(height - 9.0, height, v) * (0.75 + 0.25 * hash21(vec2(floor(u / 2.0), seed)));
+  if (st == 3) emitC += vec3(0.20, 0.30, 0.55) * 0.26 * smoothstep(height - 9.0, height, v) * (0.75 + 0.25 * hash21(vec2(floor(u / 2.0), seed)));
 
   // far away a window is smaller than a pixel: fade to the average of wall and lit windows
-  float lodK = smoothstep(0.2, 0.7, max(fw.x, fw.y));
   float litAvg = (shop ? 0.78 : litP * 0.82) * 0.5;
   base = mix(base, mix(wallLit, glass, 0.4), lodK);
   emitC = mix(emitC, vec3(1.0, 0.74, 0.46) * litAvg * 0.62, lodK);

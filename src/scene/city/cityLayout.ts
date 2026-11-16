@@ -5,7 +5,8 @@ import {
 
 export interface BuildingData {
   x: number; z: number; w: number; d: number; h: number
-  /** 0 residential, 1 office curtain wall, 2 commercial ribbon, 3 tower */
+  /** 0 residential, 1 office curtain wall, 2 commercial ribbon, 3 tower, 4 balcony apartments, 5 vertical-fin glass,
+   *  6 mixed concrete/glass/metal, 7 reflective glass curtain wall */
   style: number
   seed: number; litProb: number
   /** 0 = none, otherwise a neon sign band is drawn near the roof */
@@ -53,10 +54,19 @@ function makeCapFn(rand: () => number) {
 const WALLS: [number, number, number][] = [
   [0.105, 0.115, 0.165], [0.17, 0.105, 0.095], [0.185, 0.155, 0.125], [0.06, 0.09, 0.15], [0.15, 0.15, 0.19], [0.12, 0.13, 0.12],
 ]
+/** Extra facade palettes (pale concrete, graphite metal, sandstone, deep teal) used by the newer facade styles. */
+const WALLS_EXTRA: [number, number, number][] = [
+  [0.21, 0.21, 0.23], [0.12, 0.14, 0.17], [0.23, 0.2, 0.16], [0.07, 0.13, 0.15], [0.17, 0.17, 0.18],
+]
 
 export function generateCity(tier: CityTier): CityLayout {
   const rand = mulberry32(2026)
   const R = (a: number, b: number) => a + (b - a) * rand()
+  // All the newer architectural variety (facade styles, setbacks, warning lights) comes from its own generator, so the existing
+  // skyline (positions, footprints, heights) is exactly what it was.
+  const arand = mulberry32(5150)
+  const AR = (a: number, b: number) => a + (b - a) * arand()
+  const pick = <T,>(list: T[]) => list[Math.floor(arand() * list.length)]
   const low = tier === 'low'
   const capDeg = makeCapFn(mulberry32(91))
   const eyeAboveGround = EYE_Y - GROUND_Y
@@ -81,47 +91,81 @@ export function generateCity(tier: CityTier): CityLayout {
     return Math.min(160, Math.max(8, hMax * boost * (0.5 + 0.5 * r)))
   }
 
+  const pickStyle = (h: number) =>
+    h > 70 ? pick([3, 7, 5, 1, 6, 4, 6]) : h > 40 ? pick([1, 5, 7, 4, 6, 2, 0, 6, 4, 2]) : h > 22 ? pick([0, 1, 2, 4, 5, 6, 7, 4, 6]) : pick([0, 2, 4, 6, 0, 4, 2, 1])
+  const OFFICE_STYLES = [1, 3, 5, 7]
+
   const addBuilding = (x: number, z: number, w: number, d: number, h: number, near: boolean, garden = false) => {
     const dist = Math.hypot(x, z)
-    let style: number
-    if (h > 55) style = rand() < 0.7 ? 3 : 1
-    else if (h > 28) style = rand() < 0.5 ? 1 : (rand() < 0.5 ? 2 : 0)
-    else style = rand() < 0.5 ? 0 : (rand() < 0.65 ? 2 : 1)
-    const office = style === 1 || style === 3
+    // the original draws are kept (so the rest of the layout is unchanged); the style itself now comes from the richer picker
+    let legacyStyle: number
+    if (h > 55) legacyStyle = rand() < 0.7 ? 3 : 1
+    else if (h > 28) legacyStyle = rand() < 0.5 ? 1 : (rand() < 0.5 ? 2 : 0)
+    else legacyStyle = rand() < 0.5 ? 0 : (rand() < 0.65 ? 2 : 1)
+    const style = pickStyle(h)
+    const office = OFFICE_STYLES.includes(legacyStyle) // legacy value keeps the same light-colour mix per building
     const sign = near && h < 40 && dist < 330 && rand() < 0.3 ? 1 : (!near && h > 30 && rand() < 0.12 ? 1 : 0)
-    const b: BuildingData = {
-      x, z, w, d, h, style, seed: Math.floor(rand() * 900) + 1,
-      litProb: office ? R(0.3, 0.6) : R(0.2, 0.52),
-      sign, tint: WALLS[Math.floor(rand() * WALLS.length)],
-      warm: office ? R(0.05, 0.45) : R(0.55, 1),
+    const seed = Math.floor(rand() * 900) + 1
+    let litProb = office ? R(0.3, 0.6) : R(0.2, 0.52)
+    const wall = WALLS[Math.floor(rand() * WALLS.length)]
+    const warm = office ? R(0.05, 0.45) : R(0.55, 1)
+    // per-building character: some are mostly dark (empty offices, unlit flats), and the newer styles use extra palettes
+    if (arand() < 0.14) litProb *= 0.3
+    const wallCol = [4, 6, 2, 7].includes(style) && arand() < 0.6 ? pick(WALLS_EXTRA) : wall
+    const warmCol = style === 1 || style === 3 || style === 5 || style === 7 ? Math.min(warm, 0.5) : style === 2 || style === 6 ? AR(0.2, 0.7) : Math.max(warm, 0.5)
+
+    // architectural setback: a lower podium with a narrower, taller tower (or a stepped crown) on top
+    const stepped = !garden && h > 34 && arand() < 0.5
+    const hb = stepped ? h * AR(0.45, 0.7) : h
+    buildings.push({ x, z, w, d, h: hb, style, seed, litProb, sign, tint: wallCol, warm: warmCol })
+    let tx = x, tz = z, tw = w, td = d
+    if (stepped) {
+      tw = w * AR(0.55, 0.75); td = d * AR(0.6, 0.8)
+      tx = x + AR(-0.4, 0.4) * (w - tw) * 0.8; tz = z + AR(-0.4, 0.4) * (d - td) * 0.8
+      const towerStyle = pick(OFFICE_STYLES.filter((s) => s !== style).concat([6]))
+      buildings.push({ x: tx, z: tz, w: tw, d: td, h, style: towerStyle, seed: seed + 3, litProb, sign: 0, tint: wallCol, warm: Math.min(warmCol, 0.5) })
+      props.push({ x: x + (w * 0.5 - 1.6) * (arand() < 0.5 ? 1 : -1) * 0.6, y: GROUND_Y + hb, z: z + AR(-d * 0.3, d * 0.3), w: AR(2, 4), h: AR(1, 2.2), d: AR(2, 4) })
     }
-    buildings.push(b)
 
     const top = GROUND_Y + h
-    // rooftop clutter
+    // rooftop clutter (original draws kept)
     if (h > 14 && !garden) {
       const n = low ? 1 : 1 + Math.floor(rand() * 3)
       for (let i = 0; i < n; i++) {
         const pw = R(2.5, Math.min(7, w * 0.45)), pd = R(2.5, Math.min(7, d * 0.45)), ph = R(1.2, 3.2)
-        props.push({ x: x + R(-w * 0.28, w * 0.28), y: top, z: z + R(-d * 0.28, d * 0.28), w: pw, h: ph, d: pd })
+        props.push({ x: tx + R(-tw * 0.28, tw * 0.28), y: top, z: tz + R(-td * 0.28, td * 0.28), w: Math.min(pw, tw * 0.5), h: ph, d: Math.min(pd, td * 0.5) })
       }
     }
+    let mast: { x: number; z: number; h: number } | null = null
     if (h > 30 && rand() < 0.75) {
       const ah = R(6, 16) * (h > 70 ? 1.6 : 1)
-      props.push({ x: x + R(-w * 0.2, w * 0.2), y: top, z: z + R(-d * 0.2, d * 0.2), w: 0.35, h: ah, d: 0.35 })
+      mast = { x: tx + R(-tw * 0.2, tw * 0.2), z: tz + R(-td * 0.2, td * 0.2), h: ah }
+      props.push({ x: mast.x, y: top, z: mast.z, w: 0.35, h: ah, d: 0.35 })
     }
-    if (h > 62) { // stepped crown
-      props.push({ x, y: top, z, w: w * 0.6, h: R(5, 11), d: d * 0.6 })
-    }
-    if (h > 40) {
-      const crown = h > 62 ? 8 : 0
-      const mast = h > 70 ? 16 : 6
-      beacons.push({
-        x: x + R(-w * 0.15, w * 0.15), y: top + crown + mast + 0.6, z: z + R(-d * 0.15, d * 0.15),
-        size: dist > 400 ? 3.4 : 1.6, period: rand() < 0.2 ? 0 : R(1.9, 2.8), phase: R(0, 6.28),
-      })
-    } else if (h > 24 && rand() < 0.25) {
-      beacons.push({ x, y: top + 5, z, size: 1.2, period: R(2, 3), phase: R(0, 6.28) })
+    if (h > 62) props.push({ x: tx, y: top, z: tz, w: tw * 0.6, h: R(5, 11), d: td * 0.6 }) // stepped crown
+    // legacy beacon draws, consumed and discarded (the lights are now placed on the real mast tips and roof corners below)
+    if (h > 40) { R(-w * 0.15, w * 0.15); R(-d * 0.15, d * 0.15); rand(); R(1.9, 2.8); R(0, 6.28) } else if (h > 24 && rand() < 0.25) { R(2, 3); R(0, 6.28) }
+
+    // aviation warning lights: only on tall structures, and not on all of them. One building = one rhythm.
+    const selected = h > 40 && arand() < (h > 90 ? 0.28 : h > 62 ? 0.16 : 0.08)
+    if (selected) {
+      const period = AR(2.2, 3.6), phase = AR(0, 6.28)
+      const size = 0.5 + dist * 0.0042
+      const tip = mast ?? (() => {
+        const ah = AR(6, 11)
+        const m = { x: tx + AR(-tw * 0.15, tw * 0.15), z: tz + AR(-td * 0.15, td * 0.15), h: ah }
+        props.push({ x: m.x, y: top, z: m.z, w: 0.35, h: ah, d: 0.35 })
+        return m
+      })()
+      const crown = h > 62 ? 0 : 0
+      beacons.push({ x: tip.x, y: top + tip.h + 0.2 + crown, z: tip.z, size, period, phase })
+      if (h > 110) { // only the very tallest towers also carry lights on their roof edges
+        const n = 2 + Math.floor(arand() * 2)
+        for (let i = 0; i < n; i++) {
+          const sx = i % 2 === 0 ? 1 : -1, sz = i < 2 ? 1 : -1
+          beacons.push({ x: tx + sx * tw * 0.46, y: top + 0.5, z: tz + sz * td * 0.46, size: size * 0.7, period, phase })
+        }
+      }
     }
   }
 
@@ -205,11 +249,11 @@ export function generateCity(tier: CityTier): CityLayout {
       }
       // trees: mostly on the far pavement so the near side never blocks the view of the road
       const near = side > 0
-      for (let x = NEAR_FIELD.xMin + 6; x < NEAR_FIELD.xMax; x += treeStep * (near ? (ak === 0 ? 1.7 : 2.4) : 1) * R(0.85, 1.25)) {
+      for (let x = NEAR_FIELD.xMin + 6; x < NEAR_FIELD.xMax; x += treeStep * (near ? (ak === 0 ? 3.0 : 2.4) : 1) * R(0.85, 1.25)) {
         if (toCross(x) < crossClear || !inNear(x, walkMid)) continue
         if (near && ak === 0) {
           // near pavement of the avenue: palms of mixed height whose crowns rise towards the window, with a shrub between
-          trees.push({ x, z: walkMid + R(-0.6, 0.6), s: 1, h: R(8.5, 17), tint: treeTint() })
+          trees.push({ x, z: walkMid + R(-0.6, 0.6), s: 1, h: R(5.5, 9.5), tint: treeTint() })
           shrubs.push({ x: x + R(6, 9), z: walkMid + 1.0, s: R(0.8, 1.3), tint: treeTint() })
         } else trees.push({ x, z: walkMid + (near ? 0 : -0.3), s: near ? R(0.55, 0.75) : R(0.7, 1.05), tint: treeTint() })
       }
@@ -218,10 +262,8 @@ export function generateCity(tier: CityTier): CityLayout {
       const occupancy = ak === 0 ? 0.5 : 0.38
       for (let x = NEAR_FIELD.xMin; x < NEAR_FIELD.xMax; x += slotStep) {
         if (toCross(x) < parkEdge(CROSS_TYPE) + 7 || !inNear(x, parkZ) || rand() > occupancy * (low ? 0.6 : 1)) continue
-        parked.push({
-          x: x + R(-0.4, 0.4), z: parkZ + R(-0.1, 0.1), rot: side > 0 ? 0 : Math.PI,
-          variant: rand() < 0.65 ? 0 : 1, color: Math.floor(rand() * 6),
-        })
+        // legacy draws kept so the rest of the layout is unchanged; the visible parked cars are the three placed below
+        R(-0.4, 0.4); R(-0.1, 0.1); rand(); rand()
       }
     }
   }
@@ -268,67 +310,35 @@ export function generateCity(tier: CityTier): CityLayout {
   }
 
 
-  /* ---------------------------------------------------------------- near frontage row
-   * The studio is ~19.5 m above the street. Between its window and the avenue stands a row of low and mid-rise buildings
-   * (roofs from ~6 to ~19 m above the street, i.e. below and around the sill), set back by varying amounts and separated by
-   * courtyards and the cross street. From above you see rooftops, roof gardens with palms and lit facades; through the gaps
-   * you see down onto the pavement and the traffic. */
+  /* ---------------------------------------------------------------- palms between the window and the avenue
+   * No buildings stand in front of the studio: the road, kerbs and traffic stay fully visible from above. Only palms occupy the
+   * strip between the studio's wall and the avenue's near pavement: loosely spaced, at varied depths, so their crowns add depth
+   * without hiding the view. Their trunks are lengthened in PalmTrees.tsx; crown size is whatever `h` gives here. */
   {
-    const frontLine = avenueZ(0) + walkEdge(avenueType(0)) + 1.2          // building line on the avenue side (-32.9)
-    const backLimit = -13                                                  // keep a light-well between the row and the studio wall
+    const frontLine = avenueZ(0) + walkEdge(avenueType(0)) + 1.2   // avenue-side edge of the strip
+    const backLimit = -13                                            // keep clear of the studio's wall
     const crossHalf = walkEdge(CROSS_TYPE) + 1.2
     const nearCross = (x: number) => {
       for (let k = -6; k <= 2; k++) if (Math.abs(x - crossX(k)) < crossHalf) return true
       return false
     }
-    const palmTint = treeTint
     let x = NEAR_FIELD.xMin
     while (x < NEAR_FIELD.xMax) {
-      if (nearCross(x)) { x += 4; continue }
-      const w = R(11, 22)
-      const cx = x + w / 2
-      if (nearCross(x + w) || nearCross(cx)) { x += 4; continue }
-      const inView = cx > -70 && cx < 25                                   // the stretch the window actually looks onto
-      const kind = rand()
-      const gap = kind < (inView ? 0.5 : 0.22)
-      if (gap) {
-        // courtyard / plaza: a small cluster of palms of different heights standing on the pavement
-        const n = low ? 2 : 2 + Math.floor(rand() * 3)
-        for (let i = 0; i < n; i++) {
-          trees.push({
-            x: x + R(2, w - 2), z: R(frontLine + 2, backLimit - 2), s: 1,
-            h: R(10, 21), tint: palmTint(),
-          })
-        }
-        x += w + R(1, 3)
-        continue
-      }
-      const depth = R(9, 15)
-      const setBack = inView ? R(0, 4) : R(0, 8)
-      const zA = frontLine + setBack
-      const zB = Math.min(zA + depth, backLimit)
-      const dd = zB - zA
-      if (dd < 7) { x += w; continue }
-      // height class (m above street): roofs below the sill, roofs around eye level, and a few taller ones off to the sides
-      const hk = rand()
-      let h: number
-      if (inView) h = hk < 0.7 ? R(7, 11.5) : R(12.5, 16)   // low roofs in front of the window, so the street stays visible beyond them
-      else if (hk < 0.36) h = R(7, 11.5)
-      else if (hk < 0.78) h = R(13, 20.5)
-      else h = R(24, 33)
-      const garden = h < 22 && w > 12 && rand() < 0.55
-      addBuilding(cx, (zA + zB) / 2, w, dd, h, true, garden)
-      if (garden) {
-        const n = low ? 1 : 1 + Math.floor(rand() * 3)
-        for (let i = 0; i < n; i++) {
-          trees.push({
-            x: cx + R(-w * 0.34, w * 0.34), z: (zA + zB) / 2 + R(-dd * 0.3, dd * 0.3), s: 1,
-            y: GROUND_Y + h, h: R(7.5, 13), tint: palmTint(),
-          })
-        }
-      }
-      x += w + (rand() < 0.4 ? R(5, 11) : R(0.8, 3))
+      x += R(18, 34)
+      if (nearCross(x)) continue
+      trees.push({ x, z: R(frontLine + 1, backLimit - 1), s: 1, h: R(5.5, 10), tint: treeTint() })
     }
+  }
+
+  /* ---------------------------------------------------------------- parked cars: exactly three, three different colours
+   * (PALETTE indices: 1 silver, 3 dark red, 4 metallic blue). Two on the near kerb and one opposite, well spaced. */
+  {
+    const type = MAJOR, zc = avenueZ(0)
+    const nearZ = zc + (type.lane * type.lanes + type.parking / 2)
+    const farZ = zc - (type.lane * type.lanes + type.parking / 2)
+    parked.push({ x: -37, z: nearZ, rot: 0, variant: 1, color: 1 })        // silver SUV, near kerb
+    parked.push({ x: -16, z: nearZ, rot: 0, variant: 0, color: 3 })        // dark red sedan, near kerb
+    parked.push({ x: -26, z: farZ, rot: Math.PI, variant: 0, color: 4 })   // metallic blue sedan, opposite kerb
   }
 
   return { buildings, props, trees, shrubs, lamps, parked, beacons, parks }

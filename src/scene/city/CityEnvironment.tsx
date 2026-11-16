@@ -24,7 +24,7 @@ export function CityEnvironment() {
   const layout = useMemo(() => generateCity(tier), [tier])
 
   const beacons = useMemo<GlowSpec[]>(
-    () => layout.beacons.map((b) => ({ x: b.x, y: b.y, z: b.z, r: 1, g: 0.12, b: 0.08, size: b.size, period: b.period, phase: b.phase })),
+    () => layout.beacons.map((b) => ({ x: b.x, y: b.y, z: b.z, r: 1, g: 0.12, b: 0.08, size: b.size, period: -b.period, phase: b.phase })),
     [layout],
   )
   const beaconPoints = useMemo(() => makeGlowPoints(beacons), [beacons])
