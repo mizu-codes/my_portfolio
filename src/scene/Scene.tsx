@@ -21,6 +21,7 @@ import { Robot } from './Robot'
 import { Pegboard } from './Pegboard'
 import { Room } from './Room'
 import { Shelf } from './Shelf'
+import { Frames } from './Frames'
 import { Sofa } from './Sofa'
 
 const [fx, fy, fz] = CAMERA.focus
@@ -56,6 +57,7 @@ export default function Scene({ onInteract }: { onInteract?: () => void; hotspot
       <Chair />
       <Robot />
       <Shelf />
+      <Frames />
       <Pegboard />
       <Sofa />
       <CoffeeTable />

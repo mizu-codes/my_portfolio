@@ -125,7 +125,7 @@ export function Pen() {
  * - dx / dz: offset from the desk centre (x) and from DESK_Z (z): front-right of the mouse, towards the desk's front edge.
  * - yaw: the phone's top (camera end) points away from the visitor, leaning slightly to the right. PI flips it end for end; 0.85 is the lean.
  */
-const PHONE_MODEL_URL = `${import.meta.env.BASE_URL}models/nothing_4a_3d_model.glb`
+const PHONE_MODEL_URL = `${import.meta.env.BASE_URL}models/nothing_4a_web.glb`
 useLoader.preload(GLTFLoader, PHONE_MODEL_URL)
 const PHONE = { length: 0.3, dx: 0.95, dz: 0.3, yaw: Math.PI + 0.85 } as const
 

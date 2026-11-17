@@ -16,7 +16,7 @@ import { GLSL_COMMON, MOON_DIR, cityUniforms } from './cityShaders'
  * rebuilding from primitives. The file is downloaded once (module-level promise, started as soon as this chunk loads, in
  * parallel with the other models), and every palm is an instance of that one mesh: one geometry, one material, one draw call.
  */
-const PALM_URL = `${import.meta.env.BASE_URL}models/palm_tree.glb`
+const PALM_URL = `${import.meta.env.BASE_URL}models/palm_tree_web.glb`
 
 /** Local height above which the fronds start; used to darken the centre of the crown. */
 const CROWN_START = 9
@@ -126,40 +126,44 @@ void main() {
   float dist = length(vWorld - cameraPosition);
   vec3 base = tex.rgb * mix(vec3(1.0), vInst, 0.6);
 
-  // Frond grade: a deep natural forest green (#315B35) instead of the earlier saturated lime. The atlas supplies the detail: each
-  // texel's brightness relative to the atlas' typical frond brightness scales the tint, so veins, leaf edges and the light/dark
-  // variation between individual fronds survive, and a little of the atlas' own hue is kept for frond-to-frond variation.
-  // The per-tree tint (aInst) shifts the tint slightly from tree to tree. The trunk keeps its bark colour.
-  // frond is 0 on the trunk and 1 across the canopy.
-  float frond = smoothstep(CROWN_START - 1.8, CROWN_START - 0.2, vLocal.y);
+  // Bark vs leaf comes from the atlas itself, never from height. (The model's last trunk segment is one bark-textured column that
+  // runs from y 7.67 up to 10.22 and is stretched by aExtra, so a height ramp painted the upper trunk green: the "collar".)
+  // The trunk columns sit in the right-hand strip of the atlas (u > 0.735); in the rest of the atlas, bark/frond-base texels are
+  // brown (g < r) while frond texels are olive-green (g >= r). leafness is 0 on all bark and 1 on frond texels.
   const vec3 LUMA = vec3(0.299, 0.587, 0.114);
-  const vec3 LEAF_TINT = vec3(0.192, 0.357, 0.208);          // #315B35 in display (sRGB) values
-  float lum = dot(base, LUMA);
-  float rel = clamp(lum / 0.27, 0.45, 1.55);                  // 0.27 = typical frond luminance of the atlas; capped so highlights stay deep
-  vec3 tgt = LEAF_TINT * mix(vec3(1.0), vInst, 0.6);
-  vec3 chromaTgt = tgt / max(dot(tgt, LUMA), 1e-3);
-  vec3 chromaTex = base / max(lum, 1e-3);
-  vec3 chroma = mix(chromaTgt, clamp(chromaTex, 0.5, 1.4), 0.18);
-  vec3 leaf = chroma * dot(tgt, LUMA) * rel;
-  base = mix(base, leaf, frond);
+  float barkStrip = smoothstep(0.725, 0.745, vUv.x);
+  float leafness = (1.0 - barkStrip) * smoothstep(-0.02, 0.012, tex.g - tex.r);
 
-  // Same night lighting as the rest of the city: cool sky ambient + moonlight + warm street-lamp bounce that fades with height.
+  // Bark: exactly the previous trunk lighting (cool ambient + moon + warm ground bounce that fades with height); the crown shade
+  // is gentler so the trunk stays brown right up to the fronds.
   float up = n.y * 0.5 + 0.5;
   float h = max(vWorld.y - GROUND, 0.0);
   vec3 light = vec3(0.34, 0.38, 0.62) * (0.4 + 0.6 * up);
   light += vec3(0.50, 0.58, 0.95) * max(dot(n, uMoonDir), 0.0) * 0.6;
   light += vec3(0.95, 0.62, 0.28) * (1.0 - up) * 1.5 * exp(-h / 10.0);
-  // Canopy: the street lamps and the lit facades below throw warm light up into the fronds (it does not fade with height the way
-  // the trunk's bounce does), and the blue glass towers behind add a faint cool rim on the edges that face away from the lamps.
-  float under = max(-n.y, 0.0);
-  light += vec3(1.0, 0.64, 0.30) * (0.22 + 0.78 * under) * 0.72 * frond;
-  vec3 V = normalize(cameraPosition - vWorld);
-  light += vec3(0.30, 0.48, 0.85) * pow(1.0 - clamp(dot(n, V), 0.0, 1.0), 2.0) * 0.30 * frond;
-  // self-shadowing: the middle of the crown and the foot of the trunk sit in shade
   float crown = smoothstep(CROWN_START - 1.5, CROWN_START + 1.0, vLocal.y);
-  float ao = mix(1.0, mix(0.55, 1.0, smoothstep(0.4, 3.6, vLocal.x)), crown);
-  ao *= mix(0.65, 1.0, smoothstep(0.0, 2.5, vLocal.y));
-  vec3 col = applyHaze(min(base * light * ao * 1.6, vec3(0.92)), dist);
+  float radial = smoothstep(0.4, 3.6, vLocal.x);
+  float foot = mix(0.65, 1.0, smoothstep(0.0, 2.5, vLocal.y));
+  float aoBark = mix(1.0, mix(0.8, 1.0, radial), crown) * foot;
+  vec3 barkCol = min(base * light * aoBark * 1.6, vec3(0.92));
+
+  // Fronds: a deep night forest green, around #203D27. The atlas supplies the detail: each texel's brightness relative to the
+  // typical frond brightness scales the tint, so veins, frond edges and the light/dark difference between fronds survive, and a
+  // little of the atlas hue is kept for frond-to-frond variation. The per-tree tint only nudges the colour. No street-lamp or
+  // facade light and no rim light is added: just cool sky ambient and a little moonlight, so nothing glows or turns yellow-green.
+  const vec3 LEAF_TINT = vec3(0.125, 0.239, 0.153);          // #203D27 in display (sRGB) values
+  float lum = dot(base, LUMA);
+  float rel = clamp(lum / 0.30, 0.55, 1.2);
+  vec3 tgt = LEAF_TINT * mix(vec3(1.0), vInst, 0.3);
+  vec3 chromaTgt = tgt / max(dot(tgt, LUMA), 1e-3);
+  vec3 chromaTex = base / max(lum, 1e-3);
+  vec3 chroma = mix(chromaTgt, clamp(chromaTex, 0.6, 1.3), 0.10);
+  vec3 leaf = chroma * dot(tgt, LUMA) * rel;
+  float shade = 0.80 + 0.20 * up + 0.20 * max(dot(n, uMoonDir), 0.0);
+  float aoLeaf = mix(1.0, mix(0.55, 1.0, radial), crown) * foot;
+  vec3 leafCol = leaf * shade * aoLeaf * vec3(0.97, 1.0, 1.05) * 1.3;   // 1.3: lands the average lit frond on #203D27 once shade and crown AO are applied
+
+  vec3 col = applyHaze(mix(barkCol, leafCol, leafness), dist);
   gl_FragColor = vec4(col, a);
 }`
 

@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react'
 import type { ThreeElements } from '@react-three/fiber'
 import type { SpotLight } from 'three'
 import { colors } from '../config/theme'
-import { CEILING_LIGHT_POS, DESK_X, DESK_Z, LAMP, MONITOR, MONITOR_FACING, MONITOR_PANEL_CENTRE_Y, PEGBOARD_POS, ROBOT_POS, ROOM, SHELF_POS } from './layout'
+import { CEILING_LIGHT_POS, DESK_X, DESK_Z, LAMP, MONITOR, MONITOR_FACING, MONITOR_PANEL_CENTRE_Y, PEGBOARD_POS, ROBOT_POS, ROOM } from './layout'
+import { SHELF } from './shelfConfig'
 import type { Vec3 } from './parts'
 import { lowPower } from './quality'
 
@@ -57,8 +58,21 @@ export function Lighting() {
       {/* Desk lamp: soft warm (about 2800 K) pool on the desk. LAMP.head is the bulb and LAMP.aim where the shade axis meets the desk (both from the lamp's own geometry). */}
       <Spot color="#ffb877" position={LAMP.head} aim={LAMP.aim} angle={0.6} penumbra={1} intensity={5.5} distance={2.4} />
 
-      {/* Shelf and pegboard LEDs: warm light spilling on the wall, books, sofa and cat bed */}
-      <pointLight color="#ffb36b" position={[SHELF_POS[0] + 0.45, 1.9, SHELF_POS[2]]} intensity={3.2} distance={4.8} />
+      {/* Shelf wall: ONE short-range, narrow warm spot standing in front of the shelf and aimed straight at the wall just under it. It replaces the
+          two wide point lights (1.3 m out, 5.5 m range) that flooded the whole left wall and reached the desk and desk lamp. Here the cone points
+          away from the room (the desk is behind the light, outside the cone) and the hard range (3.2 m) cuts the light off before it reaches anything else, so the wall keeps
+          its dark brown and only gets a faint warm lift around the shelf. The shelf's own LED strip, wash layers and area light are in Shelf.tsx. */}
+      <Spot
+        color="#ffa85c" position={[SHELF.wallX + 1.4, 1.1, SHELF.z]} aim={[SHELF.wallX, 1.0, SHELF.z]}
+        angle={1.05} penumbra={1} intensity={6.5} distance={3.2} decay={2}
+      />
+      {/* Left wall base fill: a dim, wide, brown-tinted spot from the middle of the room, aimed INTO the wall. It only keeps the panelling readable
+          so the wall does not fall to black away from the shelf; the desk and lamp are behind it, outside the cone, and the range ends before the desk. */}
+      <Spot
+        color="#c98650" position={[SHELF.wallX + 2.2, 2.2, SHELF.z + 1.2]} aim={[SHELF.wallX, 1.4, SHELF.z + 0.4]}
+        angle={1.2} penumbra={1} intensity={7} distance={4.6} decay={2}
+      />
+      {/* Pegboard LEDs: warm light spilling on the wall, sofa and cat bed */}
       <pointLight color="#ffb36b" position={[PEGBOARD_POS[0] - 0.3, 2.0, ROOM.backZ + 0.6]} intensity={3.6} distance={5.5} />
 
       {!lowPower && (
