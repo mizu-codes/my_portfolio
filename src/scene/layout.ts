@@ -320,6 +320,7 @@ export const CAMERA = {
    * The camera looks this far (m) above the orbit pivot. The camera position is unchanged (so what hides what
    * stays the same); only the framing shifts, lifting the shelf, window and pegboard into view and trimming empty floor.
    */
+  /* Was 0.3. Raised so the two ceiling spotlights over the left-wall frames (FrameSpotlights.tsx) are in view at the default camera; set back to 0.3 to restore the old framing. */
   lookLift: 0.3,
   /**
    * The camera also looks this far (m) to the right of the orbit pivot. The camera position is unchanged; only the aim pans, which

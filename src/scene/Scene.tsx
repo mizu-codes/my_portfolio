@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { ACESFilmicToneMapping } from 'three'
 import { colors } from '../config/theme'
@@ -22,6 +23,7 @@ import { Pegboard } from './Pegboard'
 import { Room } from './Room'
 import { Shelf } from './Shelf'
 import { Frames } from './Frames'
+import { FrameSpotlights } from './FrameSpotlights'
 import { Sofa } from './Sofa'
 
 const [fx, fy, fz] = CAMERA.focus
@@ -58,6 +60,7 @@ export default function Scene({ onInteract }: { onInteract?: () => void; hotspot
       <Robot />
       <Shelf />
       <Frames />
+      <Suspense fallback={null}><FrameSpotlights /></Suspense>
       <Pegboard />
       <Sofa />
       <CoffeeTable />
