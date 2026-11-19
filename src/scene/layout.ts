@@ -2,7 +2,7 @@ import type { Vec3 } from './parts'
 import { lampPlane } from './lampModel'
 
 /** World units are metres. Camera looks from +z toward the window on the back wall (-z). */
-export const ROOM = { halfWidth: 3.6, height: 3.4, backZ: -3.2, frontZ: 5.5 } as const
+export const ROOM = { halfWidth: 4.0, height: 3.6, backZ: -3.2, frontZ: 7.5 } as const
 /** `centerX` is the window's world x. It sits left of the room's centre so the pegboard and speaker have room to its right on the same wall, fully inside the opening camera view. */
 export const WINDOW = { centerX: -1.2, halfWidth: 1.5, bottom: 1.1, top: 2.9 } as const
 
@@ -14,7 +14,7 @@ export const DESK_TOP = 0.75
  * width: 2.20 m (was 2.90 m, which projected to a 5 : 1 bench running far toward the visitor). depth: 0.70 m, unchanged.
  */
 export const DESK = {
-  width: 2.50,
+  width: 2.75,
   depth: 0.80,
   /** Extra tabletop toward the visitor (+z), added to the FRONT only. The back edge stays at DESK_Z - depth/2, so the robot, monitor, keyboard and chair (all positioned from DESK_Z) do not move. */
   frontExtension: 0.33,
@@ -26,10 +26,26 @@ export const DESK = {
   front: { thickness: 0.04, setback: 0.07, floorGap: 0.03 },
 } as const
 /**
+ * Fit of public/models/desk.glb (see deskModel.ts / Desk.tsx). The footprint and the tabletop height come from DESK and DESK_TOP above,
+ * so every prop, the robot and the camera keep their numbers. The slab, the carcass and the handles are fitted separately, never as one
+ * uniform scale, so drawers, cabinets and handles keep natural proportions.
+ * - slabThickness: tabletop slab (m). The model's slab is 0.05 m; 0.06 m gives the LED strip a little more wall to sit on. The slab underside
+ *   (DESK_TOP - slabThickness = 0.69 m) stays above the robot's knees (top 0.662 m).
+ * - pedestalStretch: how much the drawer stack and the cabinet column widen (1 = the model's own width). The knee bay takes up the rest of
+ *   the extra width, so the two storage blocks are not stretched as much as the desk is widened.
+ * - floorY: underside of the carcass. The rug top is at 0.012 m, so the desk stands directly on the rug, as one piece with no base layer.
+ *   The tabletop is pinned at DESK_TOP, so the carcass height is whatever is left: about 0.68 m, within 3% of the model's own.
+ */
+export const DESK_MODEL = {
+  slabThickness: 0.06,
+  pedestalStretch: 1.12,
+  floorY: 0.012,
+} as const
+/**
  * World x of the desk's centre. Shifted left so the workstation sits toward the left-centre of
  * the room, giving the right-side camera view a clear diagonal look across the setup.
  */
-export const DESK_X = -0.65
+export const DESK_X = -0.80
 /** World z of the desk's centre. Negative = toward the back wall / window. */
 export const DESK_Z = -1.2
 export const DESK_POS: Vec3 = [DESK_X, 0, DESK_Z]
@@ -326,9 +342,9 @@ export const CAMERA = {
    * The camera also looks this far (m) to the right of the orbit pivot. The camera position is unchanged; only the aim pans, which
    * slides the left-of-centre window and the pegboard/speaker group into the frame instead of letting the right wall run off the edge.
    */
-  lookShiftX: 0.3,
+  lookShiftX: -0.05,
   /** Share of the screen half-width the right-wall group may reach at the default camera (keeps a margin to the edge). */
-  rightWallMargin: 0.94,
+  rightWallMargin: 0.95,
   /** Value `lookLift` eases to at the end of the downward drag (negative = aiming below the pivot, at the desk, hands, chair and rug). */
   lookLiftDown: -0.2,
   /** Horizontal drag range (rad) relative to the base yaw. */

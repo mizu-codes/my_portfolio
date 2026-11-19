@@ -12,9 +12,15 @@ export const colors = {
   wood: '#3f2a21',
   woodLight: '#5a3d2c',
   walnutEdge: '#7a4a2a',
-  /** Generated desk (Desk.tsx): near-black satin tabletop, and the slightly lifted matte-black body so its form still reads. */
-  deskTop: '#0c0c0f',
-  deskBody: '#16161b',
+  /** Desk (desk.glb, Desk.tsx): satin-black top, deep-charcoal body, and a graphite step for each kind of storage so they read apart. */
+  deskTop: '#181A20',
+  deskBody: '#25272D',
+  deskFront: '#343740',
+  deskDoor: '#292C33',
+  deskInterior: '#30333B',
+  deskHandle: '#626873',
+  /** Warm-white LED strip around the tabletop, about 2800 K. */
+  deskLed: '#ffc680',
   metal: '#2b2a30',
   chair: '#1d1c21',
   keyboard: '#1f2026',

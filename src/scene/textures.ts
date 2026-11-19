@@ -44,6 +44,25 @@ export const deskGrainTexture = () => {
   return t
 }
 
+/**
+ * Soft dark rounded-rectangle falloff (black with an alpha gradient), laid on the rug under the desk as a contact shadow. The room's only
+ * shadow map is the ceiling light's, which is soft and off to one side; this keeps the plinth visibly seated on the floor from every angle.
+ */
+export const contactShadowTexture = () =>
+  make('desk:contact', 256, 256, (g, w, h) => {
+    g.clearRect(0, 0, w, h)
+    const steps = 48
+    for (let i = 0; i < steps; i++) {
+      const k = i / (steps - 1) // 0 outside .. 1 inside
+      const inset = (1 - k) * 0.5 * Math.min(w, h) * 0.55 + 0.02 * w
+      g.fillStyle = `rgba(0,0,0,${(0.9 / steps) * (0.35 + 1.3 * k * k)})`
+      const rr = Math.max(6, 40 * (1 - k) + 14)
+      g.beginPath()
+      g.roundRect(inset, inset, w - 2 * inset, h - 2 * inset, rr)
+      g.fill()
+    }
+  })
+
 /** Soft woven-fabric speckle in the given base colour. */
 export const fabricTexture = (base: string, repeat: [number, number] = [3, 3]) =>
   make(`fabric:${base}:${repeat}`, 128, 128, (g, w, h) => {

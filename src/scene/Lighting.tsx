@@ -77,8 +77,7 @@ export function Lighting() {
 
       {!lowPower && (
         <>
-          {/* Glow under the desk edge, and a cool wash from the monitor onto the robot */}
-          <pointLight color="#ff9d4a" position={[DESK_X, 0.25, DESK_Z + 0.65]} intensity={0.5} distance={2.2} />
+          {/* Cool wash from the monitor onto the robot. (The warm glow under the desk edge now comes from the desk's own strip lights, Desk.tsx.) */}
           <pointLight color="#6fb8ff" position={SCREEN_GLOW} intensity={0.4} distance={1.5} />
         </>
       )}
