@@ -344,7 +344,7 @@ export const CAMERA = {
    */
   lookShiftX: -0.05,
   /** Share of the screen half-width the right-wall group may reach at the default camera (keeps a margin to the edge). */
-  rightWallMargin: 0.95,
+  rightWallMargin: 0.90,
   /** Value `lookLift` eases to at the end of the downward drag (negative = aiming below the pivot, at the desk, hands, chair and rug). */
   lookLiftDown: -0.2,
   /** Horizontal drag range (rad) relative to the base yaw. */

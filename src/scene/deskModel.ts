@@ -420,6 +420,101 @@ export function planLoop(loop: Pt[], step = 0.004): PathPt[] {
   return out
 }
 
+export interface Seg { x1: number; z1: number; x2: number; z2: number; nx: number; nz: number }
+
+/**
+ * Cuts a non-indexed triangle list ([x, y, z] x 3 per triangle) with the horizontal plane at `y` and returns the cut as unordered
+ * segments, each with the outward (horizontal) normal of the face it came from. Used to follow the carcass walls, bevels and corners
+ * exactly, however the pieces are split.
+ */
+export function cutSegments(pos: ArrayLike<number>, y: number): Seg[] {
+  const out: Seg[] = []
+  for (let t = 0; t < pos.length; t += 9) {
+    const hits: number[][] = []
+    for (let e = 0; e < 3; e++) {
+      const a = t + e * 3, b = t + ((e + 1) % 3) * 3
+      const ya = pos[a + 1] - y, yb = pos[b + 1] - y
+      if ((ya < 0) === (yb < 0) || ya === yb) continue
+      const f = ya / (ya - yb)
+      hits.push([pos[a] + (pos[b] - pos[a]) * f, pos[a + 2] + (pos[b + 2] - pos[a + 2]) * f])
+    }
+    if (hits.length !== 2) continue
+    const ux = pos[t + 3] - pos[t], uy = pos[t + 4] - pos[t + 1], uz = pos[t + 5] - pos[t + 2]
+    const vx = pos[t + 6] - pos[t], vy = pos[t + 7] - pos[t + 1], vz = pos[t + 8] - pos[t + 2]
+    const fx = uy * vz - uz * vy
+    const fz = ux * vy - uy * vx
+    const hl = Math.hypot(fx, fz)
+    const full = Math.hypot(fx, uz * vx - ux * vz, fz)
+    if (hl / (full || 1) < 0.3) continue // a roughly horizontal face
+    out.push({ x1: hits[0][0], z1: hits[0][1], x2: hits[1][0], z2: hits[1][1], nx: fx / hl, nz: fz / hl })
+  }
+  return out
+}
+
+export interface Wash { positions: Float32Array; colors: Float32Array; indices: Uint32Array }
+
+/**
+ * A soft vertical gradient laid just off the carcass wall under the tabletop edge, standing in for the strip's light on that wall. It is
+ * built from the wall's own outline, so it is continuous through the straight runs and the rounded corners, and it is only a colour
+ * (added to what is behind it), so it cannot create specular patches or hotspots the way a light close to the wall does.
+ * `keep` selects which segments count (those near the tabletop's outline, so the inside of the knee bay is left alone).
+ */
+export function buildWash(
+  segs: Seg[], keep: (s: Seg) => boolean,
+  o: { top: number; drop: number; rows: number; peak: number; lift: number; color: [number, number, number]; falloff: number; rampDistance: number; rampStart: number },
+): Wash {
+  const used = segs.filter(keep)
+  const rows = o.rows
+  const positions = new Float32Array(used.length * 2 * rows * 3)
+  const colors = new Float32Array(used.length * 2 * rows * 3)
+  const indices = new Uint32Array(used.length * (rows - 1) * 6)
+  let vi = 0, ii = 0
+  used.forEach((s) => {
+    const base = vi
+    // Each segment is lengthened by 0.5 mm at both ends so neighbouring segments overlap and leave no hairline gaps at bevels.
+    const dx = s.x2 - s.x1, dz = s.z2 - s.z1
+    const dl = Math.hypot(dx, dz) || 1
+    for (let c = 0; c < 2; c++) {
+      const sign = c === 0 ? -1 : 1
+      const x = (c === 0 ? s.x1 : s.x2) + s.nx * o.lift + (dx / dl) * 0.0005 * sign
+      const z = (c === 0 ? s.z1 : s.z2) + s.nz * o.lift + (dz / dl) * 0.0005 * sign
+      for (let r = 0; r < rows; r++) {
+        // Rows are packed closer together near the top, where the brightness changes fastest.
+        const tt = Math.pow(r / (rows - 1), 1.6)
+        const d = tt * o.drop
+        // Eases in from the tabletop's underside (no hard bright edge there), peaks `rampDistance` below it, then falls off smoothly.
+        const u = Math.min(1, d / o.rampDistance)
+        const ramp = o.rampStart + (1 - o.rampStart) * (u * u * (3 - 2 * u))
+        // Light falls off with distance and has no sharp end: an exponential tail, times a gentle window that only brings it to exactly
+        // zero at the bottom row, far below where it can be seen.
+        const k = o.peak * ramp * Math.exp(-d / o.falloff) * (1 - tt) * (1 - tt)
+        positions.set([x, o.top - d, z], vi * 3)
+        colors.set([o.color[0] * k, o.color[1] * k, o.color[2] * k], vi * 3)
+        vi++
+      }
+    }
+    for (let r = 0; r < rows - 1; r++) {
+      const a = base + r, b = base + r + 1, c2 = base + rows + r, d = base + rows + r + 1
+      indices.set([a, b, c2, b, d, c2], ii)
+      ii += 6
+    }
+  })
+  return { positions, colors, indices }
+}
+
+/** Distance from (x, z) to the closed polyline `loop`. */
+export function distToLoop(loop: Pt[], x: number, z: number): number {
+  let best = Infinity
+  for (let i = 0; i < loop.length; i++) {
+    const a = loop[i], b = loop[(i + 1) % loop.length]
+    const dx = b.x - a.x, dz = b.z - a.z
+    const l2 = dx * dx + dz * dz || 1
+    const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / l2))
+    best = Math.min(best, Math.hypot(x - (a.x + dx * t), z - (a.z + dz * t)))
+  }
+  return best
+}
+
 export interface ProfilePoint {
   /** Offset along the outward normal from the outline (m). */
   d: number

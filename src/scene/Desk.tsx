@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { useLoader } from '@react-three/fiber'
 import {
-  AdditiveBlending, BufferAttribute, BufferGeometry, DoubleSide, RectAreaLight,
+  AdditiveBlending, BufferAttribute, BufferGeometry, CustomBlending, DoubleSide, MaxEquation, OneFactor, RectAreaLight,
   type Mesh, type Object3D,
 } from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -10,7 +10,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { colors } from '../config/theme'
 import { DESK, DESK_MODEL, DESK_POS, DESK_TOP } from './layout'
 import {
-  boundsOf, classifyCarcass, measureKnots, planLoop, splitParts, sliceLoop, sweepProfile, warpDesk,
+  boundsOf, buildWash, classifyCarcass, cutSegments, distToLoop, measureKnots, planLoop, splitParts, sliceLoop, sweepProfile, warpDesk,
   type ProfilePoint, type Swept, type Warp,
 } from './deskModel'
 import { contactShadowTexture } from './textures'
@@ -44,14 +44,21 @@ const FRONT_Z = FIT.backZ + FIT.depth
  */
 const LED = {
   color: colors.deskLed,
-  aboveUnderside: 0.017,
-  height: 0.005,
-  protrusion: 0.0007,
+  aboveUnderside: 0.015,
+  height: 0.020,
+  protrusion: 0.0009,
   step: 0.004,
-  haloHeight: 0.022,
+  haloHeight: 0.032,
   haloOffset: 0.0008,
-  haloPeak: 0.2,
+  haloPeak: 0.55,
 }
+
+/**
+ * The warm wash on the carcass wall under the tabletop edge: it starts at the underside at `peak` and falls off over `drop` metres
+ * (an exponential tail with decay length `falloff`, so there is no visible lower edge). `maxEdgeDistance` keeps it to the outside walls.
+ */
+const WASH = { drop: 0.2, rows: 40, peak: 0.1, falloff: 0.05, rampDistance: 0.015, rampStart: 0.12, lift: 0.002, maxEdgeDistance: 0.095 }
+const LED_RGB: [number, number, number] = [1, 0.45, 0.12]
 
 const STRIP_PROFILE: ProfilePoint[] = [
   { d: 0, dy: -LED.height / 2, k: 1 },
@@ -60,11 +67,10 @@ const STRIP_PROFILE: ProfilePoint[] = [
   { d: 0, dy: LED.height / 2, k: 1 },
 ]
 const HALO_PROFILE: ProfilePoint[] = [
-  { d: LED.haloOffset, dy: -LED.haloHeight / 2, k: 0 },
-  { d: LED.haloOffset, dy: -LED.haloHeight / 4, k: 0.4 * LED.haloPeak },
-  { d: LED.haloOffset, dy: 0, k: LED.haloPeak },
-  { d: LED.haloOffset, dy: LED.haloHeight / 4, k: 0.4 * LED.haloPeak },
-  { d: LED.haloOffset, dy: LED.haloHeight / 2, k: 0 },
+  { d: LED.haloOffset, dy: -0.016, k: 0 },
+  { d: LED.haloOffset, dy: -0.008, k: 0.4 * LED.haloPeak },
+  { d: LED.haloOffset, dy: -0.002, k: LED.haloPeak },
+  { d: LED.haloOffset, dy:  0.003, k: 0 },
 ]
 
 interface DeskParts {
@@ -74,6 +80,7 @@ interface DeskParts {
   interior: BufferGeometry
   body: BufferGeometry
   handles: BufferGeometry
+  wash: BufferGeometry | null
   strip: BufferGeometry | null
   halo: BufferGeometry | null
   warp: Warp
@@ -182,7 +189,7 @@ function buildDesk(root: Object3D): DeskParts {
   const carcassBox = boundsOf(pos, index, parts.carcass)
   const knots = measureKnots(pos, index, parts.carcass, carcassBox)
 
-    const warp = warpDesk({ slab: slabBox, carcass: carcassBox, knots }, {
+  const warp = warpDesk({ slab: slabBox, carcass: carcassBox, knots }, {
     width: FIT.width, depth: FIT.depth, backZ: FIT.backZ, top: FIT.top,
     slabThickness: DESK_MODEL.slabThickness, carcassBottom: DESK_MODEL.floorY, pedestalStretch: DESK_MODEL.pedestalStretch,
   })
@@ -232,24 +239,40 @@ function buildDesk(root: Object3D): DeskParts {
   const ledY = L.underside + LED.aboveUnderside
   const loop = sliceLoop(sp, si, ledY)
   slabRaw.dispose()
-  if (!loop) return { slab, drawer, door, interior, body, handles, strip: null, halo: null, warp }
+  // Wall wash: cut all four carcass pieces just below the slab, keep the cut near the tabletop outline, and grade it downward.
+  let wash: BufferGeometry | null = null
+  if (loop) {
+    const segs = [drawer, door, interior, body].flatMap((g) => cutSegments(g.getAttribute('position').array as Float32Array, L.underside - 0.05))
+    const w = buildWash(segs, (sg) => {
+      const mx = (sg.x1 + sg.x2) / 2, mz = (sg.z1 + sg.z2) / 2
+      // Only walls that face away from the middle of the desk (the outside) and sit close to the tabletop's outline.
+      return (mx * sg.nx + (mz - (FIT.backZ + FIT.depth / 2)) * sg.nz) > 0 && distToLoop(loop, mx, mz) < WASH.maxEdgeDistance
+    }, {
+      top: L.underside - 0.002, drop: WASH.drop, rows: WASH.rows, peak: WASH.peak, lift: WASH.lift, falloff: WASH.falloff, rampDistance: WASH.rampDistance, rampStart: WASH.rampStart,
+      color: LED_RGB,
+    })
+    wash = toGeometry(w, true)
+  }
+  if (!loop) return { slab, drawer, door, interior, body, handles, wash: null, strip: null, halo: null, warp }
   const path = planLoop(loop, LED.step)
   return {
-    slab, drawer, door, interior, body, handles, warp,
+    slab, drawer, door, interior, body, handles, warp, wash,
     strip: toGeometry(sweepProfile(path, ledY, STRIP_PROFILE, false), false),
     halo: toGeometry(sweepProfile(path, ledY, HALO_PROFILE, false), true),
   }
 }
 
 /**
- * Lights that belong to the desk. The LED strip itself is an emissive mesh (it cannot light anything), so a thin linear area light the
+ * Lights that belong to the desk. These now only give the rug and floor a faint warm spill: the wash on the desk's own walls is the
+ * gradient band above, because an area light a few centimetres from a wall, and ending short of the corners, makes grey specular
+ * patches on the rounded corners and a dark gap beside them. The LED strip itself is an emissive mesh (it cannot light anything), so a thin linear area light the
  * length of each lit edge stands in for it. A real strip under the slab lip washes the wall below it and the floor beyond with a soft
  * vertical falloff and no hotspot; so do these. Each faces mostly down and a little back toward the carcass wall under the overhang
  * (which is set in about 4 cm from the slab edge), so the wall gets a gradient from the top and the rug a faint warm spill.
  * RectAreaLight intensity is a luminance (nits), so it is much larger than the candela values of the room's spot lights: a 2 cm strip
  * has little area. Phones and small tablets skip them.
  */
-const STRIP_LIGHT = { front: 13, end: 11, back: 11, height: 0.02, tilt: 0.8 }
+const STRIP_LIGHT = { front: 4, end: 3.2, back: 3.2, height: 0.02, tilt: 0.5 }
 
 function StripLights({ underside }: { underside: number }) {
   const lights = useMemo(() => {
@@ -286,7 +309,7 @@ export function Desk() {
   const shadow = useMemo(() => contactShadowTexture(), [])
   useEffect(() => () => {
     parts.slab.dispose(); parts.drawer.dispose(); parts.door.dispose(); parts.interior.dispose(); parts.body.dispose()
-    parts.handles.dispose(); parts.strip?.dispose(); parts.halo?.dispose()
+    parts.handles.dispose(); parts.wash?.dispose(); parts.strip?.dispose(); parts.halo?.dispose()
   }, [parts])
 
   const midZ = FIT.backZ + FIT.depth / 2
@@ -298,24 +321,33 @@ export function Desk() {
       </mesh>
       {/* Exterior body: matte deep charcoal, flat panels. */}
       <mesh geometry={parts.body} castShadow receiveShadow>
-        <meshPhysicalMaterial color={colors.deskBody} roughness={0.6} metalness={0} />
+        <meshPhysicalMaterial color={colors.deskBody} roughness={0.88} metalness={0} specularIntensity={0.15} envMapIntensity={0.15} />
       </mesh>
       {/* Drawer fronts: graphite with a satin lacquer. */}
       <mesh geometry={parts.drawer} castShadow receiveShadow>
-        <meshPhysicalMaterial color={colors.deskFront} roughness={0.4} metalness={0} clearcoat={0.3} clearcoatRoughness={0.4} />
+        <meshPhysicalMaterial color={colors.deskFront} roughness={0.58} metalness={0} specularIntensity={0.4} envMapIntensity={0.3} />
       </mesh>
       {/* Cabinet doors: a step darker than the drawers, slightly softer sheen. */}
       <mesh geometry={parts.door} castShadow receiveShadow>
-        <meshPhysicalMaterial color={colors.deskDoor} roughness={0.46} metalness={0} clearcoat={0.2} clearcoatRoughness={0.45} />
+        <meshPhysicalMaterial color={colors.deskDoor} roughness={0.64} metalness={0} specularIntensity={0.3} envMapIntensity={0.25} />
       </mesh>
       {/* Interiors: lighter charcoal, matte, so the compartments read as openings. */}
       <mesh geometry={parts.interior} castShadow receiveShadow>
-        <meshPhysicalMaterial color={colors.deskInterior} roughness={0.72} metalness={0} />
+        <meshPhysicalMaterial color={colors.deskInterior} roughness={0.85} metalness={0} specularIntensity={0.2} envMapIntensity={0.2} />
       </mesh>
       <mesh geometry={parts.handles} castShadow receiveShadow>
         <meshStandardMaterial color={colors.deskHandle} metalness={0.85} roughness={0.34} envMapIntensity={2.4} />
       </mesh>
 
+      {/* Warm wash on the carcass wall under the tabletop edge: a colour gradient cut from the wall itself, so it is continuous round the corners. */}
+      {parts.wash ? (
+        <mesh geometry={parts.wash} renderOrder={1}>
+          <meshBasicMaterial
+            vertexColors transparent blending={CustomBlending} blendEquation={MaxEquation} blendSrc={OneFactor} blendDst={OneFactor}
+            depthWrite={false} toneMapped={false} side={DoubleSide} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2}
+          />
+        </mesh>
+      ) : null}
       {parts.strip ? (
         <mesh geometry={parts.strip}>
           <meshBasicMaterial color={LED.color} toneMapped={false} side={DoubleSide} />
