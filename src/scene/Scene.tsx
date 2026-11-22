@@ -9,7 +9,6 @@ import { Chair } from './Chair'
 import { City } from './City'
 import { CatBed } from './CatBed'
 import { CeilingLight } from './CeilingLight'
-import { CoffeeTable } from './CoffeeTable'
 import { Desk, Monitor } from './Desk'
 import { DeskMat } from './DeskMat'
 import { Book, Keyboard, Mouse, Pen, Phone, StickyNotes } from './DeskProps'
@@ -25,6 +24,7 @@ import { Shelf } from './Shelf'
 import { Frames } from './Frames'
 import { FrameSpotlights } from './FrameSpotlights'
 import { Sofa } from './Sofa'
+import { MonsteraPlant } from './MonsteraPlant'
 
 const [fx, fy, fz] = CAMERA.focus
 const [ox, oy, oz] = CAMERA.offset
@@ -63,7 +63,7 @@ export default function Scene({ onInteract }: { onInteract?: () => void; hotspot
       <Suspense fallback={null}><FrameSpotlights /></Suspense>
       <Pegboard />
       <Sofa />
-      <CoffeeTable />
+      <MonsteraPlant />
       <CatBed />
       <CameraRig onInteract={onInteract} />
     </Canvas>

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { ThreeElements } from '@react-three/fiber'
 import type { SpotLight } from 'three'
 import { colors } from '../config/theme'
-import { CEILING_LIGHT_POS, DESK_X, DESK_Z, LAMP, MONITOR, MONITOR_FACING, MONITOR_PANEL_CENTRE_Y, PEGBOARD_POS, ROBOT_POS, ROOM } from './layout'
+import { CEILING_LIGHT_POS, DESK_X, DESK_Z, LAMP, MONITOR, MONITOR_FACING, MONITOR_PANEL_CENTRE_Y, ROBOT_POS, ROOM } from './layout'
 import { SHELF } from './shelfConfig'
 import type { Vec3 } from './parts'
 import { lowPower } from './quality'
@@ -72,8 +72,6 @@ export function Lighting() {
         color="#c98650" position={[SHELF.wallX + 2.2, 2.2, SHELF.z + 1.2]} aim={[SHELF.wallX, 1.4, SHELF.z + 0.4]}
         angle={1.2} penumbra={1} intensity={7} distance={4.6} decay={2}
       />
-      {/* Pegboard LEDs: warm light spilling on the wall, sofa and cat bed */}
-      <pointLight color="#ffb36b" position={[PEGBOARD_POS[0] - 0.3, 2.0, ROOM.backZ + 0.6]} intensity={3.6} distance={5.5} />
 
       {!lowPower && (
         <>

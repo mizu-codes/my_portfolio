@@ -306,9 +306,40 @@ export const RIGHT_WALL_FIT: Vec3[] = [
   [PEGBOARD_POS[0] + 0.7, PEGBOARD_POS[1] + 0.5, ROOM.backZ],
   [PEGBOARD_POS[0] + 0.45, 1.0, ROOM.backZ + 0.22],
 ]
-/** Right side of the room: human sofa against the wall, coffee table in front. */
-export const SOFA_POS: Vec3 = [3.13, 0, -1.85]
-export const COFFEE_TABLE_POS: Vec3 = [1.95, 0, -1.85]
+/**
+ * Right side of the room: the sofa (public/models/sofa_web.glb, a lossless repack of sofa.glb; see sofaModel.ts / Sofa.tsx) stands against
+ * the right wall, facing into the room. The old coffee table in front of it is gone, so that floor is open all the way to the desk.
+ * - width: the sofa's length along the wall (m). The model is scaled UNIFORMLY to this, so cushions, arms and back keep the artist's proportions.
+ *   1.85 m is a compact three-seater, a little narrower than the old 1.9 m block sofa; the desk is 2.75 m wide, so it stays a supporting piece.
+ * - wallGap: space (m) between the wall's inner face (x = ROOM.halfWidth) and the sofa's rearmost point; just enough to avoid z-fighting.
+ * - cornerClearance: how far (m) the sofa's near end stays from the back wall. The strip of floor between the back wall and the sofa is
+ *   kept empty on purpose for a floor-standing flower planter (see PLANT_CORNER).
+ */
+export const SOFA = {
+  width: 2.6,
+  wallGap: 0.01,
+  cornerClearance: 1.3,
+} as const
+/**
+ * Floor area reserved for the future flower planter: the back-right corner, from the sofa's end to the back wall and 1.1 m out from the right wall.
+ * The monstera (MONSTERA below) stands here; the sofa derives its z position from the same corner clearance.
+ */
+export const PLANT_CORNER = {
+  xMin: ROOM.halfWidth - 1.1,
+  xMax: ROOM.halfWidth,
+  zMin: ROOM.backZ,
+  zMax: ROOM.backZ + SOFA.cornerClearance,
+} as const
+/**
+ * Monstera floor plant (public/models/monstera_plant_web.glb, see scripts/optimize-monstera.mjs and MonsteraPlant.tsx). It stands in the back-right corner PLANT_CORNER
+ * reserves, between the back wall and the sofa's end: clear of the sofa by about 0.3 m and of the back wall by about 0.2 m.
+ * - x, z: world position of the pot's centre. Both are measured to the CANOPY edge, not the pot: the leaves reach about 0.45 m (at scale 1) from the pot axis.
+ * - height: the plant's height from floor to top leaf (m); the model is scaled uniformly to it.
+ * - yaw: turn about y (rad), so the fullest side of the canopy faces the room.
+ */
+export const MONSTERA = { x: 3.38, z: -2.60, height: 1.8, yaw: 1.6 } as const
+/** Sofa group origin: on the floor, on the sofa's rear plane against the right wall, at the middle of its length along the wall. Sofa.tsx turns it to face -x. */
+export const SOFA_POS: Vec3 = [ROOM.halfWidth - SOFA.wallGap, 0, ROOM.backZ + SOFA.cornerClearance + SOFA.width / 2]
 /**
  * Small cat bed on the left side of the room, beside the desk's left-front corner.
  * Pushed slightly forward (higher Z) so it remains clearly visible from the low oblique camera.
@@ -324,7 +355,7 @@ export const CAMERA = {
    * Look-at target: focused on the robot's torso/chest area so the full robot body
    * is prominent in the frame, matching the reference image composition.
    */
-  focus: [-0.35, 0.72, -1.60] as Vec3,
+  focus: [-0.35, 0.82, -1.60] as Vec3,
   /**
    * Offset from focus to the default camera position — a three-quarter view from the visitor's
    * right at a lower pitch so the monitor doesn't fully block the robot's body.

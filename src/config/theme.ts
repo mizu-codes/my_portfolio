@@ -25,7 +25,8 @@ export const colors = {
   chair: '#1d1c21',
   keyboard: '#1f2026',
   keys: '#34363f',
-  fabric: '#6a5757',
+  /** Sofa upholstery: warm greige / muted taupe. Sofa.tsx tints the GLB's own fabric texture so its AVERAGE colour is exactly this. */
+  sofaFabric: '#8f7056',
   petBed: '#5b4549',
   /** Rug (Rug.tsx): soft charcoal field, slightly lighter charcoal tonal variation, thin muted-bronze inset line, near-black perimeter band. */
   rug: '#29282d',
