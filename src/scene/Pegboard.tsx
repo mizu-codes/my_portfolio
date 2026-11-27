@@ -15,7 +15,7 @@ import { ARM_Z, HOOKS, hookAnchor, type HookSpec } from './pegboard/layout'
 RectAreaLightUniformsLib.init()
 
 /** The whole board (and everything on it) is built at 1.30 m and scaled up so its contents read clearly from the default camera. */
-const BOARD_SCALE = 1.22
+const BOARD_SCALE = 1.05
 const FILL = 0.65
 
 /** A hanging object's pivot sits on the hook arm's centre line, so rotating the group named `pivot:*` inside swings it about the real hook. */
@@ -48,7 +48,7 @@ export function Pegboard() {
         <OnHook spec={HOOKS.idMizhan} name="id-mizhan" scale={1.3}>
           <IdCard
             id_="id-mizhan" name="Mizhan" role="Full Stack Developer" id="ID 0417 · FS-01"
-            accent="#7d4fdc" accentDeep="#5530b0" lanyard="#7a4ed8" lanyardEdge="#5a35ae" drop={0.365}
+            accent="#7d4fdc" accentDeep="#5530b0" lanyard="#d84e4e" lanyardEdge="#5a35ae" drop={0.31}
           />
         </OnHook>
         <OnHook spec={HOOKS.idOlyvex} name="id-olyvex" scale={1.3}>
@@ -59,9 +59,9 @@ export function Pegboard() {
         </OnHook>
 
         <OnHook spec={HOOKS.headphones} name="headphones" scale={1.2}><group name="pivot:headphones"><Headphones /></group></OnHook>
-        <OnHook spec={HOOKS.cable} name="cable" scale={1.25}><Cable /></OnHook>
-        <OnHook spec={HOOKS.keys} name="keys" scale={1.55}><Keys /></OnHook>
-        <OnHook spec={HOOKS.charm} name="charm" scale={1.6}><Charm /></OnHook>
+        <OnHook spec={HOOKS.cable} name="cable" scale={1.45}><Cable /></OnHook>
+        <OnHook spec={HOOKS.keys} name="keys" scale={1.75}><Keys /></OnHook>
+        <OnHook spec={HOOKS.charm} name="charm" scale={1.7}><Charm /></OnHook>
       </group>
      
     </group>

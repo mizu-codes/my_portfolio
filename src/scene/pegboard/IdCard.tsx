@@ -6,10 +6,10 @@ import { ARM_R } from './layout'
 import { lanyardMaterial, mats, roundedBox } from './materials'
 import { CARD_PX, drawCard, type CardDesign } from './textures'
 
-const CARD_W = 0.0695
-const CARD_H = 0.1098
-const HOLDER_W = 0.0805
-const HOLDER_H = 0.1285
+const CARD_W = 0.0945     // was 0.0845
+const CARD_H = 0.1425     // unchanged
+const HOLDER_W = 0.1055   // CARD_W + 0.011
+const HOLDER_H = 0.1615   // unchanged
 const HOLDER_T = 0.0068
 const STRAND_Z = 0.0013
 const TWIST_LEN = 0.055

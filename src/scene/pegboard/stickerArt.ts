@@ -41,11 +41,7 @@ function star5(g: G, cx: number, cy: number, R: number, r: number, rot = -Math.P
 const BACKDROP: Partial<Record<StickerKind, { a: string; b: string; scale: number; sparkle?: boolean }>> = {
   sleepingCat: { a: '#5b6cff', b: '#3a3fc4', scale: 0.8, sparkle: true },
   catFace: { a: '#ffb3d1', b: '#ff7fb2', scale: 0.8 },
-  camera: { a: '#46d9d0', b: '#1fa8b4', scale: 0.8 },
   moonStars: { a: '#4a46b8', b: '#2b2784', scale: 0.8, sparkle: true },
-  plant: { a: '#ffe58a', b: '#ffc94a', scale: 0.78 },
-  paw: { a: '#c9a8ff', b: '#9a74f0', scale: 0.8 },
-  coffee: { a: '#9fd8ff', b: '#5aaef0', scale: 0.78 },
 }
 
 const ART: Record<StickerKind, (g: G) => void> = {

@@ -40,8 +40,8 @@ export const hookAnchor = (h: HookSpec): [number, number] =>
  */
 export const HOOKS = {
   /** Two ID-card hooks fixed in the second and third hole rows from the top edge. */
-  idMizhan: { col: 6, row: 2, orient: 'v' },
-  idOlyvex: { col: 12, row: 2, orient: 'v' },
+  idMizhan: { col: 4, row: 1, orient: 'v' },
+  idOlyvex: { col: 12, row: 1, orient: 'v' },
   /** Centred on the board: the pair of holes at columns 21 and 22 straddles x = 0. */
   headphones: { col: 21, row: 7, orient: 'h' },
   cable: { col: 32, row: 11, orient: 'v' },

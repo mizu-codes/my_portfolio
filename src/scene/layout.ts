@@ -299,7 +299,7 @@ export const LAMP = {
 export const SHELF_POS: Vec3 = [-3.45, 0, -1.85]
 export const SHELF_ROT: Vec3 = [0, Math.PI / 2, 0]
 /** Pegboard (1.3 m wide) and the speaker ledge under it share this x. Moved in from 2.45 so the board's right edge (2.65 m) and the ledge are no longer cut off by the screen edge at the default three-quarter camera. */
-export const PEGBOARD_POS: Vec3 = [1.4, 1.90, ROOM.backZ]
+export const PEGBOARD_POS: Vec3 = [1.2, 1.90, ROOM.backZ]
 /** Points on the right-hand wall group (board's right edge with its LED outline, ledge's right end) that must stay on screen at the default camera. */
 export const RIGHT_WALL_FIT: Vec3[] = [
   [PEGBOARD_POS[0] + 0.7, PEGBOARD_POS[1], ROOM.backZ],

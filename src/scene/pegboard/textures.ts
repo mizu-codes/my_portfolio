@@ -185,7 +185,7 @@ export function lanyardMap(color: string, edge: string) {
 /* Identity cards                                                                                                      */
 /* ------------------------------------------------------------------------------------------------------------------ */
 
-export const CARD_PX = [480, 760] as const
+export const CARD_PX = [480, 622] as const
 
 export interface CardDesign { name: string; role: string; accent: string; accentDeep: string; id: string }
 

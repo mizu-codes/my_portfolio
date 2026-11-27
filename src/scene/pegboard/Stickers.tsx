@@ -12,21 +12,21 @@ interface Sticker { kind: StickerKind; x: number; y: number; size: number; rot: 
  */
 export const STICKERS: Sticker[] = [
   // far-left lane (left of the ID cards)
-  { kind: 'moonStars', x: -0.572, y: 0.2, size: 0.098, rot: 8 },
-  { kind: 'plant', x: -0.572, y: -0.005, size: 0.105, rot: -5 },
-  { kind: 'paw', x: -0.572, y: -0.205, size: 0.088, rot: 12 },
+  { kind: 'moonStars', x: -0.392, y: 0.2, size: 0.080, rot: 8 },
+  { kind: 'plant', x: -0.392, y: -0.005, size: 0.080, rot: -1 },
+  { kind: 'paw', x: -0.392, y: -0.205, size: 0.088, rot: 1 },
   // between the cards and the headphones: above and below the headphones' own space
-  { kind: 'catFace', x: -0.215, y: 0.2, size: 0.108, rot: -6 },
-  { kind: 'sleepingCat', x: -0.215, y: -0.2, size: 0.128, rot: 4 },
+  { kind: 'catFace', x: -0.165, y: 0.2, size: 0.080, rot: -1 },
+  { kind: 'sleepingCat', x: -0.165, y: -0.2, size: 0.080, rot: 1 },
   // between the headphones and the cable
-  { kind: 'controller', x: 0.205, y: 0.2, size: 0.125, rot: 5 },
-  { kind: 'pixelGhost', x: 0.215, y: 0.062, size: 0.082, rot: -3 },
-  { kind: 'coffee', x: 0.2, y: -0.2, size: 0.11, rot: 6 },
+  { kind: 'controller', x: 0.205, y: 0.2, size: 0.115, rot: 1 },
+  { kind: 'pixelGhost', x: 0.215, y: 0.062, size: 0.082, rot: -1 },
+  { kind: 'coffee', x: 0.2, y: -0.2, size: 0.08, rot: 1 },
   // right of the cable
   { kind: 'star', x: 0.385, y: 0.2, size: 0.058, rot: 14 },
-  { kind: 'camera', x: 0.43, y: -0.2, size: 0.112, rot: -4 },
+  { kind: 'camera', x: 0.43, y: -0.2, size: 0.10, rot: -1 },
   // right edge
-  { kind: 'handheld', x: 0.545, y: 0.215, size: 0.098, rot: -5 },
+  { kind: 'handheld', x: 0.545, y: 0.215, size: 0.098, rot: -1 },
   { kind: 'star', x: 0.565, y: -0.215, size: 0.056, rot: -10 },
 ]
 
