@@ -8,6 +8,14 @@ export const colors = {
   ceiling: '#1d1818',
   floor: '#3a2f29',
   frame: '#17141a',
+  /** Entrance door: matte near-black lining and casing, a deep-charcoal leaf, brushed-steel hardware. */
+  doorFrame: '#0f0f13',
+  doorLeaf: '#1d1e24',
+  doorMetal: '#9a9da6',
+  /** Decorative fairy lights above the door: warm-white bulbs, soft golden glow, near-black wire. */
+  fairyBulb: '#ffe2b4',
+  fairyGlow: '#ffb460',
+  fairyWire: '#141418',
   // Furniture and materials
   wood: '#3f2a21',
   woodLight: '#5a3d2c',

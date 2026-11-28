@@ -1,8 +1,45 @@
 import type { Vec3 } from './parts'
 import { lampPlane } from './lampModel'
 
-/** World units are metres. Camera looks from +z toward the window on the back wall (-z). */
-export const ROOM = { halfWidth: 4.0, height: 3.6, backZ: -3.2, frontZ: 7.5 } as const
+/**
+ * World units are metres. Camera looks from +z toward the window on the back wall (-z). All values are INNER faces of the shell.
+ * frontZ is the inner face of the rear (entrance) wall, behind the default camera. It was 7.5 m, which left a 10.7 m deep hall with a wide
+ * empty floor in front of the desk; 3.5 m gives a 6.7 m deep studio. Every piece of furniture sits between z = -3.2 and z = +0.7, so
+ * nothing moved: only the boundary of the room did.
+ */
+export const ROOM = { halfWidth: 4.0, height: 3.6, backZ: -3.2, frontZ: 3.5 } as const
+/** Structural thickness (m) of all four walls. The shell's outer faces are at |x| = halfWidth + WALL_T, z = backZ - WALL_T and z = frontZ + WALL_T. */
+export const WALL_T = 0.14
+/**
+ * Textures that were authored against the OLD room (depth 10.7 m, front at z = 7.5) keep their metre-scale and their position relative to
+ * the window wall, so the stone slabs, the plank joints and the seams on screen are exactly where they were.
+ */
+export const OLD_ROOM = { frontZ: 7.5, depth: 10.7 } as const
+
+/**
+ * Entrance door in the rear wall (the wall behind the default camera). `x` is the centre of the opening along the wall (the left half of the
+ * wall as seen from inside, like the reference). The leaf is a standard interior door; the opening is the leaf plus a 5 cm lining on each side.
+ */
+export const DOOR = {
+  x: -1.35,
+  leaf: { width: 0.90, height: 2.04, thickness: 0.045 },
+  lining: 0.05,
+  casing: { width: 0.075, proud: 0.014 },
+} as const
+
+/**
+ * The building the studio sits on. The studio is the penthouse of a tower whose street is GROUND_Y (-19.5 m) below the floor.
+ * - tower: footprint is the studio plus a roof terrace on three sides; the window side is flush with the facade so the
+ *   exterior view through the window is exactly what it was.
+ * - slab: the structural floor slab of the penthouse (it is also the roof of the tower's top storey).
+ */
+export const BUILDING = {
+  terrace: 1.55,
+  slab: 0.42,
+  slabOverhang: 0.12,
+  parapet: { height: 1.05, thickness: 0.2 },
+  roofSlab: 0.3,
+} as const
 /** `centerX` is the window's world x. It sits left of the room's centre so the pegboard and speaker have room to its right on the same wall, fully inside the opening camera view. */
 export const WINDOW = { centerX: -1.2, halfWidth: 1.5, bottom: 1.1, top: 2.9 } as const
 
@@ -368,14 +405,14 @@ export const CAMERA = {
    * stays the same); only the framing shifts, lifting the shelf, window and pegboard into view and trimming empty floor.
    */
   /* Was 0.3. Raised so the two ceiling spotlights over the left-wall frames (FrameSpotlights.tsx) are in view at the default camera; set back to 0.3 to restore the old framing. */
-  lookLift: 0.3,
+  lookLift: 0.2,
   /**
    * The camera also looks this far (m) to the right of the orbit pivot. The camera position is unchanged; only the aim pans, which
    * slides the left-of-centre window and the pegboard/speaker group into the frame instead of letting the right wall run off the edge.
    */
   lookShiftX: -0.05,
   /** Share of the screen half-width the right-wall group may reach at the default camera (keeps a margin to the edge). */
-  rightWallMargin: 0.90,
+  rightWallMargin: 0.80,
   /** Value `lookLift` eases to at the end of the downward drag (negative = aiming below the pivot, at the desk, hands, chair and rug). */
   lookLiftDown: -0.2,
   /** Horizontal drag range (rad) relative to the base yaw. */
@@ -385,6 +422,18 @@ export const CAMERA = {
   maxCameraX: 3.8,
   /** Keeps the camera safely below the ceiling (3.4 m). The pitch range is derived from this, so the camera never has to be clamped (which would silently change the orbit distance). */
   maxCameraY: 3.8,
+  /**
+   * The compact room has no space for the camera to retreat as far as the old 10.7 m room did. Narrow screens therefore stop at maxOrbit (m)
+   * and widen the lens instead, by the factor that keeps the same width visible on the desk (up to fovMax). The camera is also kept at least
+   * frontMargin (m) in front of the rear wall's inner face.
+   */
+  maxOrbit: 4.7,
+  fovMax: 80,
+  frontMargin: 0.75,
+  /** Widest horizontal field of view (deg) allowed on very wide windows; beyond it the vertical field narrows instead, so the edges are not stretched. */
+  hfovMax: 100,
+  /** Half-height (m) that must stay visible at the focus point on very wide windows (the camera backs off a little if the narrowed field would not show it). */
+  fitHalfHeight: 1.5,
   /** Half-width (m) that must stay visible at the focus point; narrow screens pull the camera back to fit it. */
   fitHalfWidth: 1.5,
   /** Tighter fit for phone-shaped screens (aspect ≤ 0.6). */

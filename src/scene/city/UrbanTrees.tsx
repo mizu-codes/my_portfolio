@@ -38,6 +38,7 @@ export function UrbanTrees({ trees, shrubs, parks, low }: { trees: TreeData[]; s
       const tint = new Float32Array(Math.max(data.length, 1) * 3).fill(1)
       data.forEach((t, i) => {
         m.makeScale(t.s * baseScale, t.s * baseScale, t.s * baseScale)
+        if (t.hidden) m.makeScale(0, 0, 0)
         m.setPosition(t.x, t.y ?? GROUND_Y, t.z)
         mesh.setMatrixAt(i, m)
         tint.set(t.tint, i * 3)

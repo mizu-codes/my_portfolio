@@ -4,6 +4,8 @@ import { prefersReducedMotion } from '../motion'
 import { lowPower } from '../quality'
 import type { CityTier } from './cityConfig'
 import { generateCity } from './cityLayout'
+import { studioTower } from './studioTower'
+import { withoutCentralRooftopPalm } from './cityEdits'
 import { cityUniforms } from './cityShaders'
 import { CityBuildings } from './CityBuildings'
 import { CityStreet } from './CityStreet'
@@ -21,7 +23,13 @@ import { UrbanTrees } from './UrbanTrees'
 export function CityEnvironment() {
   const width = useThree((s) => s.size.width)
   const tier: CityTier = lowPower || width < 760 ? 'low' : 'high'
-  const layout = useMemo(() => generateCity(tier), [tier])
+  // The tower under the studio is appended after the city is generated, so no existing building, tree, lamp or car moves.
+  const layout = useMemo(() => {
+    const city = generateCity(tier)
+    city.buildings.push(studioTower())
+    city.trees = withoutCentralRooftopPalm(city.trees)
+    return city
+  }, [tier])
 
   const beacons = useMemo<GlowSpec[]>(
     () => layout.beacons.map((b) => ({ x: b.x, y: b.y, z: b.z, r: 1, g: 0.12, b: 0.08, size: b.size, period: -b.period, phase: b.phase })),

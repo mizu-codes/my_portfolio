@@ -21,7 +21,7 @@ export interface PropData { x: number; y: number; z: number; w: number; h: numbe
  * `top` is the absolute world-y of the palm's apex: the trunk is lengthened (crown size untouched) until the palm reaches it, so a
  * palm can be tall without its fronds being scaled. `fuller` widens the crown/fronds only (1 = as modelled).
  */
-export interface TreeData { x: number; z: number; s: number; tint: [number, number, number]; y?: number; h?: number; top?: number; fuller?: number }
+export interface TreeData { x: number; z: number; s: number; tint: [number, number, number]; y?: number; h?: number; top?: number; fuller?: number; /** Kept in the list so every other tree keeps its index (and so its seeded variation), but not drawn. */ hidden?: boolean }
 export interface LampData { x: number; z: number; rot: number; scale: number }
 export interface ParkedData { x: number; z: number; rot: number; variant: number; color: number }
 export interface BeaconData { x: number; y: number; z: number; size: number; period: number; phase: number }

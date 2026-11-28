@@ -20,11 +20,15 @@ import { Lighting } from './Lighting'
 import { Robot } from './Robot'
 import { Pegboard } from './Pegboard'
 import { Room } from './Room'
+import { Building } from './Building'
+import { Entrance } from './Entrance'
+import { FloorLamps } from './FloorLamps'
 import { Shelf } from './Shelf'
 import { Frames } from './Frames'
 import { FrameSpotlights } from './FrameSpotlights'
 import { Sofa } from './Sofa'
 import { MonsteraPlant } from './MonsteraPlant'
+import { InspectHooks, manualFrames } from './InspectHooks'
 
 const [fx, fy, fz] = CAMERA.focus
 const [ox, oy, oz] = CAMERA.offset
@@ -33,7 +37,8 @@ const [ox, oy, oz] = CAMERA.offset
 export default function Scene({ onInteract }: { onInteract?: () => void; hotspotRef?: unknown }) {
   return (
     <Canvas
-      shadows={!lowPower}
+      frameloop={manualFrames ? 'never' : 'always'}
+      shadows={lowPower ? false : 'percentage'}
       dpr={[1, MAX_DPR]}
       camera={{ fov: CAMERA.fov, near: 0.1, far: CITY_FAR, position: [fx + ox, fy + oy, fz + oz] }}
       gl={{ antialias: true, powerPreference: 'high-performance', toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
@@ -43,6 +48,9 @@ export default function Scene({ onInteract }: { onInteract?: () => void; hotspot
       <Environment />
       <Lighting />
       <Room />
+      <Building />
+      <Entrance />
+      <FloorLamps />
       <Rug />
       <CeilingLight />
       <City />
@@ -66,6 +74,7 @@ export default function Scene({ onInteract }: { onInteract?: () => void; hotspot
       <MonsteraPlant />
       <CatBed />
       <CameraRig onInteract={onInteract} />
+      <InspectHooks />
     </Canvas>
   )
 }

@@ -1,46 +1,77 @@
-import { colors } from '../config/theme'
+import { Component, Suspense, useMemo, type ReactNode } from 'react'
+import { useLoader, useThree } from '@react-three/fiber'
+import { Box3, Vector3, type Material, type Mesh, type MeshStandardMaterial } from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
+import { ktx2Loader } from './MonsteraPlant'
 import type { Vec3 } from './parts'
 
-/** Curled, sleeping cat from primitives. Origin is on the surface it rests on. */
-export function Cat({ position, rotationY = 0 }: { position: Vec3; rotationY?: number }) {
+/**
+ * The sleeping white cat: public/models/cat_web.glb, built from cat.glb (kept untouched next to it) by scripts/optimize-cat.mjs:
+ * whiskers removed, smooth normals added, colour map as KTX2/UASTC, geometry quantised + Meshopt-compressed.
+ * The model is used as the artist made it; only the scale, the turn and the position are set here.
+ *
+ * Model space: the head is at -x and the face looks towards -x / +z (the camera-facing side is +z); the body extends to +x.
+ */
+const MODEL_URL = `${import.meta.env.BASE_URL}models/cat_web.glb`
+
+/** length: head-to-tail-tip size (m) the model is scaled to. sink: how far the underside is pressed into the cushion (m). */
+export const CAT = { length: 0.46, sink: 0.006 } as const
+
+function CatModel({ position, rotationY }: { position: Vec3; rotationY: number }) {
+  // The KTX2 loader is configured (renderer capability detection) before the model is requested.
+  const gl = useThree((s) => s.gl)
+  const gltf = useLoader(GLTFLoader, MODEL_URL, (loader) => {
+    loader.setKTX2Loader(ktx2Loader(gl))
+    loader.setMeshoptDecoder(MeshoptDecoder)
+  })
+
+  const cat = useMemo(() => {
+    const model = gltf.scene.clone(true)
+    model.traverse((o) => {
+      const mesh = o as Mesh
+      if (!mesh.isMesh) return
+      mesh.castShadow = true
+      mesh.receiveShadow = true
+      // glTF defaults to fully metallic when the file gives no factor; fur is not.
+      const m = mesh.material as MeshStandardMaterial
+      m.metalness = 0
+      m.roughness = 0.95
+      ;(m as Material).needsUpdate = true
+    })
+    model.updateMatrixWorld(true)
+    const box = new Box3().setFromObject(model)
+    const size = box.getSize(new Vector3())
+    const centre = box.getCenter(new Vector3())
+    const scale = CAT.length / size.x
+    // Centred on x/z, underside at y = 0 (the surface the cat rests on), pressed in by `sink`.
+    return { model, scale, offset: [-centre.x * scale, -box.min.y * scale - CAT.sink, -centre.z * scale] as Vec3 }
+  }, [gltf])
+
   return (
     <group position={position} rotation={[0, rotationY, 0]}>
-      <mesh position={[0, 0.075, 0]} scale={[1.55, 0.72, 1]} castShadow>
-        <sphereGeometry args={[0.11, 20, 14]} />
-        <meshStandardMaterial color={colors.fur} roughness={1} />
-      </mesh>
-      {/* Head tucked at one end, with a lighter muzzle, closed eyes and ears */}
-      <group position={[0.16, 0.075, 0.07]} rotation={[0, -0.5, 0]}>
-        <mesh castShadow>
-          <sphereGeometry args={[0.065, 16, 12]} />
-          <meshStandardMaterial color={colors.fur} roughness={1} />
-        </mesh>
-        <mesh position={[0.045, -0.015, 0]} scale={[0.7, 0.6, 0.9]}>
-          <sphereGeometry args={[0.04, 10, 8]} />
-          <meshStandardMaterial color={colors.cream} roughness={1} />
-        </mesh>
-        {[-1, 1].map((s) => (
-          <group key={s}>
-            <mesh position={[0.015, 0.06, s * 0.04]} rotation={[s * 0.25, 0, 0]}>
-              <coneGeometry args={[0.02, 0.045, 4]} />
-              <meshStandardMaterial color={colors.fur} roughness={1} />
-            </mesh>
-            <mesh position={[0.055, 0.012, s * 0.03]}>
-              <boxGeometry args={[0.004, 0.004, 0.02]} />
-              <meshBasicMaterial color="#1a1410" />
-            </mesh>
-          </group>
-        ))}
+      <group position={cat.offset} scale={cat.scale}>
+        <primitive object={cat.model} />
       </group>
-      {/* Tail wrapped around the body, white paws */}
-      <mesh position={[0, 0.03, 0]} rotation={[Math.PI / 2, 0, 0.6]}>
-        <torusGeometry args={[0.12, 0.018, 8, 20, Math.PI * 1.1]} />
-        <meshStandardMaterial color={colors.fur} roughness={1} />
-      </mesh>
-      <mesh position={[0.1, 0.025, 0.1]} scale={[1.4, 0.7, 1]}>
-        <sphereGeometry args={[0.025, 8, 6]} />
-        <meshStandardMaterial color={colors.cream} roughness={1} />
-      </mesh>
     </group>
+  )
+}
+
+/** If the model cannot load, the room simply has an empty bed rather than losing the whole scene. */
+class CatBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  componentDidCatch(error: unknown) { console.error('Cat model failed to load:', error) }
+  render() { return this.state.failed ? null : this.props.children }
+}
+
+/** Sleeping cat. Origin is on the surface it rests on; rotationY turns it about the vertical axis. */
+export function Cat({ position, rotationY = 0 }: { position: Vec3; rotationY?: number }) {
+  return (
+    <CatBoundary>
+      <Suspense fallback={null}>
+        <CatModel position={position} rotationY={rotationY} />
+      </Suspense>
+    </CatBoundary>
   )
 }

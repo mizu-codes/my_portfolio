@@ -225,9 +225,9 @@ function Succulent() {
 
 /** Three small hardbacks lying flat in a stack, each a little off-square. Origin: centre of the stack's footprint on the shelf top. */
 const STACK_BOOKS = [
-  { w: 0.17, d: 0.12, t: 0.024, cover: '#2b2f3a', x: 0, z: 0, yaw: 0.0 },
-  { w: 0.15, d: 0.108, t: 0.019, cover: '#d8cdb6', x: 0.006, z: -0.002, yaw: 0.09 },
-  { w: 0.135, d: 0.1, t: 0.021, cover: '#16384a', x: -0.004, z: 0.002, yaw: -0.07 },
+  { w: 0.17, d: 0.12, t: 0.024, cover: '#e3924b', x: 0, z: 0, yaw: 0.0 },
+  { w: 0.15, d: 0.108, t: 0.019, cover: '#ebd5a5', x: 0.006, z: -0.002, yaw: 0.09 },
+  { w: 0.135, d: 0.1, t: 0.021, cover: '#000000', x: -0.004, z: 0.002, yaw: -0.07 },
 ]
 const STACK_W = 0.17
 function BookStack() {

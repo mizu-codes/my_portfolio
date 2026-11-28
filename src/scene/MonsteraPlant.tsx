@@ -13,7 +13,8 @@ const MODEL_URL = `${import.meta.env.BASE_URL}models/monstera_plant_web.glb`
 const TRANSCODER_PATH = `${import.meta.env.BASE_URL}basis/`
 
 let ktx2: KTX2Loader | null = null
-function ktx2Loader(gl: WebGLRenderer) {
+/** One shared KTX2Loader (and one Basis transcoder worker pool) for every KTX2 model in the scene; Cat.tsx reuses it. */
+export function ktx2Loader(gl: WebGLRenderer) {
   if (!ktx2) ktx2 = new KTX2Loader().setTranscoderPath(TRANSCODER_PATH)
   return ktx2.detectSupport(gl)
 }

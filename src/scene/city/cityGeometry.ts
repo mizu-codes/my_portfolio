@@ -30,7 +30,8 @@ export function cylAt(r: number, h: number, x: number, y: number, z: number, col
 
 /** Faceted blob; per-vertex brightness noise gives the foliage a lit, low-poly look. */
 export function blobAt(r: number, x: number, y: number, z: number, col: Col, detail: number, squash = 0.85): BufferGeometry {
-  const g = new IcosahedronGeometry(r, detail).toNonIndexed()
+  // PolyhedronGeometry is already non-indexed in current three, so no toNonIndexed() here
+  const g = new IcosahedronGeometry(r, detail)
   g.scale(1, squash, 1)
   g.translate(x, y, z)
   g.deleteAttribute('uv')

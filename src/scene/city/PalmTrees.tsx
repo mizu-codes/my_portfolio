@@ -222,7 +222,9 @@ export function PalmTrees({ asset, trees, low }: { asset: PalmAsset; trees: Tree
     const shadow = new InstancedMesh(shadowGeo, shadowMat, n)
     const sq = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), SHADOW_YAW)
 
+    const none = new Matrix4().makeScale(0, 0, 0)
     trees.forEach((t, i) => {
+      if (t.hidden) { mesh.setMatrixAt(i, none); shadow.setMatrixAt(i, none); return } // not drawn; the index stays, so no other palm changes
       // all variation comes from a PRNG seeded by the tree's position (see palmPlacement.ts), so the city layout is untouched
       const pl = placePalm(t, i)
       extra[i] = pl.extra

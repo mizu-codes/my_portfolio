@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { MathUtils } from 'three'
-import { cameraPosition, lookTarget, pitchRange, yawRange } from './cameraPath'
+import { MathUtils, type PerspectiveCamera } from 'three'
+import { cameraPosition, fieldOfView, lookTarget, pitchRange, yawRange } from './cameraPath'
+import { inspectView } from './inspectViews'
 import { prefersReducedMotion } from './motion'
 
 const DRAG_SPEED = 0.0035
@@ -70,6 +71,18 @@ export function CameraRig({ onInteract }: { onInteract?: () => void }) {
 
   useFrame((_, dt) => {
     const aspect = size.width / size.height
+    const cam = camera as PerspectiveCamera
+    // Optional inspection camera (?view=...): a fixed pose, used to look at the door, the outside of the building and the cut-away plan.
+    const pose = inspectView.pose
+    if (pose) {
+      cam.position.set(...pose.position)
+      cam.lookAt(...pose.target)
+      if (Math.abs(cam.fov - pose.fov) > 1e-3) { cam.fov = pose.fov; cam.updateProjectionMatrix() }
+      return
+    }
+    // The field of view adapts to the window shape (see cameraPath.viewFor); the room itself is never scaled or distorted.
+    const fov = fieldOfView(aspect)
+    if (Math.abs(cam.fov - fov) > 1e-3) { cam.fov = fov; cam.updateProjectionMatrix() }
     const [lo, hi] = yawRange(aspect)
     const [pLo, pHi] = pitchRange(aspect)
     target.current.yaw = MathUtils.clamp(target.current.yaw, lo, hi) // re-clamp after a resize or rotation
